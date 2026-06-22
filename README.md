@@ -3,7 +3,7 @@
 Userscript Tampermonkey yang membaca soal kuis di Moodle LMS Telkom University,
 mengirimnya ke LLM, lalu otomatis memilih jawaban yang cocok.
 
-- **File utama:** `projek 1.js`
+- **File utama:** `lms-assistant.user.js`
 - **Berjalan di:** `https://lms.telkomuniversity.ac.id/mod/quiz/attempt.php*`
 - **Versi:** 3.0
 - **Spesifikasi teknis lengkap:** `memory/MEMORY.md`
@@ -16,7 +16,7 @@ mengirimnya ke LLM, lalu otomatis memilih jawaban yang cocok.
 
 1. Pasang ekstensi **Tampermonkey** (Chrome/Edge/Firefox).
 2. Buka dashboard Tampermonkey → **Create a new script**.
-3. Hapus isi default, paste seluruh isi `projek 1.js`, lalu **Save** (Ctrl+S).
+3. Hapus isi default, paste seluruh isi `lms-assistant.user.js`, lalu **Save** (Ctrl+S).
 4. Buka halaman kuis di LMS — panel "Quiz Assistant" muncul di pojok kanan atas.
 
 ## Cara Pakai
@@ -39,12 +39,16 @@ jadi ganti provider tidak menghapus key yang sudah diisi.
 |----------|-----------|-------|
 | **Groq** | `gsk_...` | **LLaMA 3.3 70B** (default), LLaMA 3.1 8B Instant, LLaMA 3 70B/8B, Gemma 2 9B |
 | **Gemini** | `AIza...` | **Gemini 3.5 Flash** (default), 3.1 Flash-Lite, 2.5 Flash/Flash-Lite/Pro, Gemma 4 31B / 4 26B A4B, Gemma 3 27B/12B/4B |
-| **Claude (Pro/Max)** | `sk-ant-oat01-...` | **Claude Haiku 4.5** (default), Sonnet 4.6, Opus 4.8 |
+| **Claude (Pro/Max)** | `sk-ant-oat01-...` | **Claude Sonnet 4.6** (default), Opus 4.8, Haiku 4.5 |
+| **DeepSeek** | `sk-...` | **DeepSeek V4 Flash** (default), DeepSeek V4 Pro |
+| **AI Lokal** | — (opsional) | Bebas, ketik sesuai model di Ollama/LM Studio (mis. `llama3.1`, `qwen2.5`, `gemma2`) |
 
 Tempat ambil key:
 - Groq: https://console.groq.com/keys
 - Gemini: https://aistudio.google.com/apikey
 - Claude: https://console.anthropic.com/settings/keys
+- DeepSeek: https://platform.deepseek.com/api_keys
+- AI Lokal: jalankan Ollama (https://ollama.com) atau LM Studio — tidak perlu key
 
 ---
 
@@ -66,7 +70,21 @@ biasa tetap pakai `systemInstruction`. (Gemma 4 sebenarnya sudah mendukung
 ### Verifikasi model ID
 Daftar model diverifikasi ke dokumentasi resmi (per Juni 2026). ID model yang
 salah menyebabkan error 404 — selalu cek docs resmi sebelum menambah model baru.
-Belum ada "Gemini 5"; yang terbaru Gemini 3.5.
+Belum ada "Gemini 5"; yang terbaru Gemini 3.5. DeepSeek kini pakai
+`deepseek-v4-flash` / `deepseek-v4-pro` (nama lama `deepseek-chat`/`deepseek-reasoner`
+pensiun 24 Jul 2026).
+
+### AI Lokal (Ollama / LM Studio)
+- Tidak perlu API key. Jalankan model lokal lewat **Ollama** (default
+  `http://localhost:11434/v1`) atau **LM Studio** (`http://localhost:1234/v1`).
+- Saat provider "AI Lokal" dipilih, muncul field **Base URL** dan **nama model**
+  diketik bebas sesuai yang ter-install (mis. `llama3.1`, `qwen2.5`).
+- Request ke `http://localhost` dari halaman HTTPS tetap jalan karena lewat
+  `GM_xmlhttpRequest` (kebal mixed-content). Kalau Ollama menolak koneksi, set
+  `OLLAMA_ORIGINS=*` sebelum menjalankannya.
+- Header `@connect *` di script mengizinkan base URL host apa pun. Kalau mau
+  lebih ketat, hapus baris itu — `localhost` & `127.0.0.1` sudah cukup untuk
+  Ollama/LM Studio lokal.
 
 ---
 
@@ -82,7 +100,7 @@ Belum ada "Gemini 5"; yang terbaru Gemini 3.5.
 5. Retry otomatis 3x bila API gagal; delay acak antar soal & antar halaman
    (anti-deteksi).
 
-## Konfigurasi di Kode (`projek 1.js`)
+## Konfigurasi di Kode (`lms-assistant.user.js`)
 
 - Tambah/ubah provider & model lewat objek `PROVIDERS` (tiap provider punya
   `models`, `buildRequest`, `parse`).

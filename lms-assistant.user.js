@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         TelU LMS Quiz Assistant
 // @namespace    http://tampermonkey.net/
-// @version      3.0
-// @description  Quiz assistant for Telkom University Moodle LMS (Groq / Gemini / Claude)
+// @version      3.1
+// @description  Quiz assistant for Telkom University Moodle LMS (Groq / Gemini / Claude / DeepSeek / Local AI)
 // @author       Developer Matrix
 // @match        https://lms.telkomuniversity.ac.id/mod/quiz/attempt.php*
 // @grant        GM_xmlhttpRequest
@@ -12,6 +12,10 @@
 // @connect      api.groq.com
 // @connect      generativelanguage.googleapis.com
 // @connect      api.anthropic.com
+// @connect      api.deepseek.com
+// @connect      localhost
+// @connect      127.0.0.1
+// @connect      *
 // @run-at       document-end
 // ==/UserScript==
 
@@ -180,6 +184,77 @@
                 return block.text.trim();
             },
         },
+
+        deepseek: {
+            name: 'DeepSeek',
+            keyHint: 'sk-...',
+            keyUrl: 'https://platform.deepseek.com/api_keys',
+            models: [
+                { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash' },
+                { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro' },
+            ],
+            buildRequest(sys, user, model, key) {
+                return {
+                    url: 'https://api.deepseek.com/chat/completions',
+                    headers: {
+                        'Authorization': `Bearer ${key}`,
+                        'Content-Type': 'application/json',
+                    },
+                    data: JSON.stringify({
+                        model,
+                        messages: [
+                            { role: 'system', content: sys },
+                            { role: 'user', content: user },
+                        ],
+                        temperature: 0.0,
+                        stream: false,
+                    }),
+                };
+            },
+            parse(json) {
+                if (json.error) throw new Error(json.error.message || 'API error');
+                return json.choices[0].message.content.trim();
+            },
+        },
+
+        local: {
+            name: 'AI Lokal (Ollama/LM Studio)',
+            keyHint: '(opsional, kosongkan jika tidak perlu)',
+            keyUrl: 'https://ollama.com/download',
+            keyOptional: true,   // tidak butuh API key
+            custom: true,        // base URL & model diisi manual
+            models: [
+                // Sekadar saran autocomplete; bisa diketik bebas sesuai model yang ter-install
+                { id: 'llama3.1', name: 'llama3.1' },
+                { id: 'qwen2.5', name: 'qwen2.5' },
+                { id: 'gemma2', name: 'gemma2' },
+                { id: 'mistral', name: 'mistral' },
+                { id: 'phi4', name: 'phi4' },
+            ],
+            buildRequest(sys, user, model, key) {
+                const base = (cfg.localBaseUrl || 'http://localhost:11434/v1').replace(/\/+$/, '');
+                const headers = { 'Content-Type': 'application/json' };
+                if (key) headers['Authorization'] = `Bearer ${key}`;
+                return {
+                    url: `${base}/chat/completions`,
+                    headers,
+                    data: JSON.stringify({
+                        model,
+                        messages: [
+                            { role: 'system', content: sys },
+                            { role: 'user', content: user },
+                        ],
+                        temperature: 0.0,
+                        stream: false,
+                    }),
+                };
+            },
+            parse(json) {
+                if (json.error) throw new Error((json.error.message || json.error) + '');
+                if (!json.choices || !json.choices[0]) throw new Error('Respon kosong / model belum di-load');
+                return json.choices[0].message.content.trim();
+            },
+        },
     };
 
     const PROVIDER_KEYS = Object.keys(PROVIDERS);
@@ -188,12 +263,15 @@
     function defaultConfig() {
         return {
             provider: 'groq',
-            apiKeys: { groq: '', gemini: '', claude: '' },
+            apiKeys: { groq: '', gemini: '', claude: '', deepseek: '', local: '' },
             models: {
                 groq: PROVIDERS.groq.models[0].id,
                 gemini: PROVIDERS.gemini.models[0].id,
                 claude: PROVIDERS.claude.models[0].id,
+                deepseek: PROVIDERS.deepseek.models[0].id,
+                local: PROVIDERS.local.models[0].id,
             },
+            localBaseUrl: 'http://localhost:11434/v1',
             autoNext: true,
             autoStart: false,
         };
@@ -334,6 +412,7 @@
 
     // ==================== UI ====================
     let logEl, statusDot, statusText, startBtn, keyInput, modelSelect, keyLink;
+    let baseUrlField, baseUrlInput, modelText, modelList;
 
     function createPanel() {
         const panel = document.createElement('div');
@@ -350,6 +429,10 @@
                         ${PROVIDER_KEYS.map(k => `<option value="${k}" ${k === cfg.provider ? 'selected' : ''}>${PROVIDERS[k].name}</option>`).join('')}
                     </select>
                 </div>
+                <div class="qbot-field" id="qbot-baseurl-field" style="display:none">
+                    <label>Base URL</label>
+                    <input type="text" id="qbot-baseurl" placeholder="http://localhost:11434/v1" />
+                </div>
                 <div class="qbot-field">
                     <label>API Key <a id="qbot-keylink" href="#" target="_blank" rel="noopener">dapatkan key</a></label>
                     <div class="qbot-key-wrap">
@@ -360,6 +443,8 @@
                 <div class="qbot-field">
                     <label>Model</label>
                     <select id="qbot-model"></select>
+                    <input type="text" id="qbot-model-text" list="qbot-model-list" style="display:none" placeholder="nama model lokal (mis. llama3.1)" />
+                    <datalist id="qbot-model-list"></datalist>
                 </div>
                 <div class="qbot-row">
                     <span style="font-size:12px;color:#9ca3af">Auto Next Page</span>
@@ -392,6 +477,10 @@
         keyInput = document.getElementById('qbot-key');
         modelSelect = document.getElementById('qbot-model');
         keyLink = document.getElementById('qbot-keylink');
+        baseUrlField = document.getElementById('qbot-baseurl-field');
+        baseUrlInput = document.getElementById('qbot-baseurl');
+        modelText = document.getElementById('qbot-model-text');
+        modelList = document.getElementById('qbot-model-list');
 
         syncProviderUI();
 
@@ -417,6 +506,16 @@
 
         modelSelect.addEventListener('change', e => {
             cfg.models[cfg.provider] = e.target.value;
+            saveConfig(cfg);
+        });
+
+        modelText.addEventListener('change', e => {
+            cfg.models[cfg.provider] = e.target.value.trim();
+            saveConfig(cfg);
+        });
+
+        baseUrlInput.addEventListener('change', e => {
+            cfg.localBaseUrl = e.target.value.trim() || 'http://localhost:11434/v1';
             saveConfig(cfg);
         });
 
@@ -447,17 +546,34 @@
 
     function syncProviderUI() {
         const provider = PROVIDERS[cfg.provider];
-        // Jika model tersimpan tidak ada lagi di daftar (mis. model lama dihapus), fallback ke model pertama
-        if (!provider.models.some(m => m.id === cfg.models[cfg.provider])) {
-            cfg.models[cfg.provider] = provider.models[0].id;
-            saveConfig(cfg);
-        }
+        const isCustom = !!provider.custom;
+
+        // Field Base URL hanya muncul untuk provider custom (AI lokal)
+        baseUrlField.style.display = isCustom ? 'flex' : 'none';
+        if (isCustom) baseUrlInput.value = cfg.localBaseUrl || 'http://localhost:11434/v1';
+
         keyInput.value = cfg.apiKeys[cfg.provider] || '';
         keyInput.placeholder = provider.keyHint;
         keyLink.href = provider.keyUrl;
-        modelSelect.innerHTML = provider.models
-            .map(m => `<option value="${m.id}" ${m.id === cfg.models[cfg.provider] ? 'selected' : ''}>${m.name}</option>`)
-            .join('');
+
+        if (isCustom) {
+            // Provider lokal: model diketik bebas (datalist hanya saran)
+            modelSelect.style.display = 'none';
+            modelText.style.display = 'block';
+            modelList.innerHTML = provider.models.map(m => `<option value="${m.id}">`).join('');
+            modelText.value = cfg.models[cfg.provider] || (provider.models[0] ? provider.models[0].id : '');
+        } else {
+            modelText.style.display = 'none';
+            modelSelect.style.display = 'block';
+            // Fallback bila model tersimpan tidak ada lagi di daftar (mis. model lama dihapus)
+            if (!provider.models.some(m => m.id === cfg.models[cfg.provider])) {
+                cfg.models[cfg.provider] = provider.models[0].id;
+                saveConfig(cfg);
+            }
+            modelSelect.innerHTML = provider.models
+                .map(m => `<option value="${m.id}" ${m.id === cfg.models[cfg.provider] ? 'selected' : ''}>${m.name}</option>`)
+                .join('');
+        }
     }
 
     function makeDraggable(el, handle) {
@@ -593,8 +709,14 @@
 
     // ==================== PROCESSOR ====================
     async function startProcessing() {
-        if (!cfg.apiKeys[cfg.provider]) {
-            log(`API Key ${PROVIDERS[cfg.provider].name} belum diisi!`, 'error');
+        const activeProvider = PROVIDERS[cfg.provider];
+        if (!activeProvider.keyOptional && !cfg.apiKeys[cfg.provider]) {
+            log(`API Key ${activeProvider.name} belum diisi!`, 'error');
+            setStatus('error');
+            return;
+        }
+        if (!cfg.models[cfg.provider]) {
+            log('Nama model belum diisi!', 'error');
             setStatus('error');
             return;
         }
@@ -736,7 +858,7 @@
     function scheduleAutoStart() {
         if (!cfg.autoStart) return;
         if (document.querySelectorAll('.que').length === 0) return;
-        if (!cfg.apiKeys[cfg.provider]) {
+        if (!PROVIDERS[cfg.provider].keyOptional && !cfg.apiKeys[cfg.provider]) {
             log('Auto Start aktif tapi API Key kosong, dilewati.', 'warn');
             return;
         }
