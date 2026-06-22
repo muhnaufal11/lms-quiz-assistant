@@ -1,0 +1,16 @@
+{
+  "name": "lms-seb-proxy",
+  "version": "4.0.0",
+  "description": "MITM Proxy — TelU LMS Quiz Assistant (SEB Edition)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "generate-ca": "node generate-ca.js"
+  },
+  "dependencies": {
+    "node-forge": "^1.3.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

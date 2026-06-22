@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Quiz Assistant — Konfigurasi (SEB)</title>
+<style>
+    * { box-sizing: border-box; }
+    body {
+        margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+        background: #0b0f19; color: #d1d5db;
+        font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; padding: 24px;
+    }
+    .card {
+        width: 420px; background: #111827; border: 1px solid #1f2937; border-radius: 14px;
+        box-shadow: 0 20px 60px rgba(0,0,0,.5); overflow: hidden;
+    }
+    .head { padding: 18px 22px; background: #1f2937; }
+    .head h1 { margin: 0; font-size: 17px; color: #60a5fa; font-weight: 600; }
+    .head p { margin: 4px 0 0; font-size: 12px; color: #9ca3af; }
+    .body { padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label {
+        font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: .5px;
+        font-weight: 600; display: flex; justify-content: space-between; align-items: center;
+    }
+    .field label a { color: #60a5fa; text-transform: none; letter-spacing: 0; font-size: 11px; text-decoration: none; }
+    .field label a:hover { text-decoration: underline; }
+    .field input, .field select {
+        background: #1f2937; border: 1px solid #374151; border-radius: 8px;
+        padding: 9px 12px; color: #e5e7eb; font-size: 14px; outline: none; width: 100%;
+    }
+    .field input:focus, .field select:focus { border-color: #60a5fa; }
+    .key-wrap { position: relative; }
+    .key-wrap input { padding-right: 40px; }
+    .eye {
+        position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+        background: none; border: none; color: #6b7280; cursor: pointer; font-size: 16px;
+    }
+    .eye:hover { color: #d1d5db; }
+    .row { display: flex; align-items: center; justify-content: space-between; }
+    .row span { font-size: 13px; color: #d1d5db; }
+    .toggle { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .toggle .slider { position: absolute; inset: 0; background: #374151; border-radius: 11px; cursor: pointer; transition: .2s; }
+    .toggle .slider::before {
+        content: ''; position: absolute; width: 18px; height: 18px; left: 2px; bottom: 2px;
+        background: #9ca3af; border-radius: 50%; transition: .2s;
+    }
+    .toggle input:checked + .slider { background: #2563eb; }
+    .toggle input:checked + .slider::before { transform: translateX(18px); background: #fff; }
+    .saved {
+        font-size: 12px; color: #34d399; text-align: center; min-height: 18px;
+        opacity: 0; transition: opacity .2s;
+    }
+    .saved.show { opacity: 1; }
+    .note {
+        background: #0b0f19; border: 1px solid #1f2937; border-radius: 8px; padding: 12px 14px;
+        font-size: 12px; color: #9ca3af; line-height: 1.7;
+    }
+    .note b { color: #d1d5db; }
+    .note code { color: #34d399; font-family: 'Cascadia Code', Consolas, monospace; font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="card">
+    <div class="head">
+        <h1>Quiz Assistant — Konfigurasi</h1>
+        <p>Atur di sini sebelum masuk SEB. Tersimpan di server (proxy).</p>
+    </div>
+    <div class="body">
+        <div class="field">
+            <label>Provider</label>
+            <select id="provider"></select>
+        </div>
+        <div class="field" id="baseurl-field" style="display:none">
+            <label>Base URL</label>
+            <input type="text" id="baseurl" placeholder="http://localhost:11434/v1" />
+        </div>
+        <div class="field">
+            <label>API Key <a id="keylink" href="#" target="_blank" rel="noopener">dapatkan key</a></label>
+            <div class="key-wrap">
+                <input type="password" id="key" placeholder="" />
+                <button class="eye" id="eye" title="Show/Hide">&#128065;</button>
+            </div>
+        </div>
+        <div class="field">
+            <label>Model</label>
+            <select id="model"></select>
+            <input type="text" id="model-text" list="model-list" style="display:none" placeholder="nama model lokal (mis. llama3.1)" />
+            <datalist id="model-list"></datalist>
+        </div>
+        <div class="row">
+            <span>Auto Next Page</span>
+            <label class="toggle"><input type="checkbox" id="autonext" /><span class="slider"></span></label>
+        </div>
+        <div class="row">
+            <span>Auto Start (saat quiz dibuka di SEB)</span>
+            <label class="toggle"><input type="checkbox" id="autostart" /><span class="slider"></span></label>
+        </div>
+        <div class="saved" id="saved">&#10003; Tersimpan</div>
+        <div class="note">
+            <b>Cara pakai:</b> isi semua di atas &rarr; otomatis tersimpan ke server.
+            Lalu buka quiz di <b>SEB</b> &mdash; panel di dalam SEB sudah terisi otomatis,
+            tinggal klik <b>Start</b>. Kalau <b>Auto Start</b> aktif, langsung jalan sendiri.
+            <br><br>
+            Pastikan proxy aktif (<code>npm start</code>) &amp; proxy Windows menunjuk <code>127.0.0.1:8080</code>.
+        </div>
+    </div>
+</div>
+
+<script>
+// Provider metadata — jaga tetap sinkron dengan frontend/assistant.js
+var PROVIDERS = {
+    groq: {
+        name: 'Groq', keyHint: 'gsk_...', keyUrl: 'https://console.groq.com/keys',
+        models: [
+            { id: 'llama-3.3-70b-versatile', name: 'LLaMA 3.3 70B' },
+            { id: 'llama-3.1-8b-instant', name: 'LLaMA 3.1 8B Instant' },
+            { id: 'llama3-70b-8192', name: 'LLaMA 3 70B' },
+            { id: 'llama3-8b-8192', name: 'LLaMA 3 8B' },
+            { id: 'gemma2-9b-it', name: 'Gemma 2 9B' },
+        ],
+    },
+    gemini: {
+        name: 'Gemini', keyHint: 'AIza...', keyUrl: 'https://aistudio.google.com/apikey',
+        models: [
+            { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash' },
+            { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash-Lite' },
+            { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+            { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash-Lite' },
+            { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+            { id: 'gemma-4-31b-it', name: 'Gemma 4 31B' },
+            { id: 'gemma-4-26b-a4b-it', name: 'Gemma 4 26B A4B' },
+            { id: 'gemma-3-27b-it', name: 'Gemma 3 27B' },
+            { id: 'gemma-3-12b-it', name: 'Gemma 3 12B' },
+            { id: 'gemma-3-4b-it', name: 'Gemma 3 4B' },
+        ],
+    },
+    claude: {
+        name: 'Claude (Pro/Max)', keyHint: 'sk-ant-oat01-...', keyUrl: 'https://console.anthropic.com/settings/keys',
+        models: [
+            { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6' },
+            { id: 'claude-opus-4-8', name: 'Claude Opus 4.8' },
+            { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5' },
+        ],
+    },
+    deepseek: {
+        name: 'DeepSeek', keyHint: 'sk-...', keyUrl: 'https://platform.deepseek.com/api_keys',
+        models: [
+            { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash' },
+            { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro' },
+        ],
+    },
+    local: {
+        name: 'AI Lokal (Ollama/LM Studio)', keyHint: '(opsional, kosongkan jika tidak perlu)',
+        keyUrl: 'https://ollama.com/download', keyOptional: true, custom: true,
+        models: [
+            { id: 'llama3.1', name: 'llama3.1' },
+            { id: 'qwen2.5', name: 'qwen2.5' },
+            { id: 'gemma2', name: 'gemma2' },
+            { id: 'mistral', name: 'mistral' },
+            { id: 'phi4', name: 'phi4' },
+        ],
+    },
+};
+var PROVIDER_KEYS = Object.keys(PROVIDERS);
+
+var cfg = null;
+var el = {};
+['provider', 'baseurl-field', 'baseurl', 'keylink', 'key', 'eye', 'model', 'model-text', 'model-list', 'autonext', 'autostart', 'saved']
+    .forEach(function (id) { el[id] = document.getElementById(id); });
+
+// Populate provider dropdown
+el.provider.innerHTML = PROVIDER_KEYS.map(function (k) {
+    return '<option value="' + k + '">' + PROVIDERS[k].name + '</option>';
+}).join('');
+
+var savedTimer = null;
+function flashSaved() {
+    el.saved.classList.add('show');
+    if (savedTimer) clearTimeout(savedTimer);
+    savedTimer = setTimeout(function () { el.saved.classList.remove('show'); }, 1500);
+}
+
+function syncUI() {
+    var p = PROVIDERS[cfg.provider];
+    var isCustom = !!p.custom;
+
+    el.provider.value = cfg.provider;
+    el['baseurl-field'].style.display = isCustom ? 'flex' : 'none';
+    if (isCustom) el.baseurl.value = cfg.localBaseUrl || 'http://localhost:11434/v1';
+
+    el.key.value = cfg.apiKeys[cfg.provider] || '';
+    el.key.placeholder = p.keyHint;
+    el.keylink.href = p.keyUrl;
+
+    if (isCustom) {
+        el.model.style.display = 'none';
+        el['model-text'].style.display = 'block';
+        el['model-list'].innerHTML = p.models.map(function (m) { return '<option value="' + m.id + '">'; }).join('');
+        el['model-text'].value = cfg.models[cfg.provider] || (p.models[0] ? p.models[0].id : '');
+    } else {
+        el['model-text'].style.display = 'none';
+        el.model.style.display = 'block';
+        if (!p.models.some(function (m) { return m.id === cfg.models[cfg.provider]; })) {
+            cfg.models[cfg.provider] = p.models[0].id;
+        }
+        el.model.innerHTML = p.models.map(function (m) {
+            return '<option value="' + m.id + '"' + (m.id === cfg.models[cfg.provider] ? ' selected' : '') + '>' + m.name + '</option>';
+        }).join('');
+    }
+
+    el.autonext.checked = !!cfg.autoNext;
+    el.autostart.checked = !!cfg.autoStart;
+}
+
+function persist() {
+    fetch('/__qbot__/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cfg),
+    }).then(function () { flashSaved(); }).catch(function () {});
+}
+
+// Events
+el.provider.addEventListener('change', function (e) { cfg.provider = e.target.value; syncUI(); persist(); });
+el.key.addEventListener('input', function (e) { cfg.apiKeys[cfg.provider] = e.target.value.trim(); persist(); });
+el.model.addEventListener('change', function (e) { cfg.models[cfg.provider] = e.target.value; persist(); });
+el['model-text'].addEventListener('input', function (e) { cfg.models[cfg.provider] = e.target.value.trim(); persist(); });
+el.baseurl.addEventListener('input', function (e) { cfg.localBaseUrl = e.target.value.trim() || 'http://localhost:11434/v1'; persist(); });
+el.autonext.addEventListener('change', function (e) { cfg.autoNext = e.target.checked; persist(); });
+el.autostart.addEventListener('change', function (e) { cfg.autoStart = e.target.checked; persist(); });
+el.eye.addEventListener('click', function () { el.key.type = el.key.type === 'password' ? 'text' : 'password'; });
+
+// Load config from server
+fetch('/__qbot__/config')
+    .then(function (r) { return r.json(); })
+    .then(function (json) { cfg = json; syncUI(); })
+    .catch(function () {
+        cfg = {
+            provider: 'groq',
+            apiKeys: { groq: '', gemini: '', claude: '', deepseek: '', local: '' },
+            models: { groq: 'llama-3.3-70b-versatile', gemini: 'gemini-3.5-flash', claude: 'claude-sonnet-4-6', deepseek: 'deepseek-v4-flash', local: 'llama3.1' },
+            localBaseUrl: 'http://localhost:11434/v1', autoNext: true, autoStart: false,
+        };
+        syncUI();
+    });
+</script>
+</body>
+</html>

@@ -1,14 +1,15 @@
 // ==UserScript==
 // @name         TelU LMS Quiz Assistant
 // @namespace    http://tampermonkey.net/
-// @version      3.1
-// @description  Quiz assistant for Telkom University Moodle LMS (Groq / Gemini / Claude / DeepSeek / Local AI)
+// @version      3.2
+// @description  Quiz assistant for Telkom University Moodle LMS (Groq / Gemini / Claude / DeepSeek / Local AI) — pilihan ganda + essay
 // @author       Developer Matrix
 // @match        https://lms.telkomuniversity.ac.id/mod/quiz/attempt.php*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_addStyle
+// @grant        unsafeWindow
 // @connect      api.groq.com
 // @connect      generativelanguage.googleapis.com
 // @connect      api.anthropic.com
@@ -25,6 +26,8 @@
     // ==================== PROMPTS ====================
     const SYS_SINGLE = 'You are a precise academic assistant. Analyze the quiz question and options. Reply with ONLY the single letter of the correct answer (e.g. B). No explanation, no extra text.';
     const SYS_MULTI = 'You are a precise academic assistant. Analyze the quiz question and options. Reply with ONLY the letters of ALL correct answers separated by commas (e.g. A, C). No explanation, no extra text.';
+    const SYS_ESSAY = 'You are a knowledgeable academic assistant taking an exam. Write a clear, accurate, well-structured answer to the following essay question. Respond in the SAME LANGUAGE as the question (Indonesian question -> Indonesian answer). Write ONLY the answer itself — no preamble like "Here is the answer", no meta-commentary, no markdown headings. Use plain paragraphs. Keep it focused and appropriately detailed for an exam answer.';
+    const SYS_SHORT = 'You are a precise exam assistant. Reply with ONLY the final answer: a number, single word, or very short phrase — nothing else. No explanation, no working steps, no full sentence, no trailing period, no units unless the answer is meaningless without them. Use the same language as the question. For a math problem, compute and output only the final result.';
 
     // ==================== PROVIDERS ====================
     const PROVIDERS = {
@@ -645,21 +648,31 @@
         });
     }
 
-    async function callLLM(question, options, isMulti) {
+    // mode: 'single' | 'multi' | 'essay'
+    async function callLLM(question, options, mode) {
         const provider = PROVIDERS[cfg.provider];
         const key = cfg.apiKeys[cfg.provider];
         const model = cfg.models[cfg.provider];
-        const labels = options.map((o, i) => `${String.fromCharCode(65 + i)}. ${o}`).join('\n');
-        const sys = isMulti ? SYS_MULTI : SYS_SINGLE;
-        const user = `Question:\n${question}\n\nOptions:\n${labels}`;
+        let sys, user;
+        if (mode === 'essay') {
+            sys = SYS_ESSAY;
+            user = `Essay question:\n${question}`;
+        } else if (mode === 'short') {
+            sys = SYS_SHORT;
+            user = `Question:\n${question}`;
+        } else {
+            sys = mode === 'multi' ? SYS_MULTI : SYS_SINGLE;
+            const labels = options.map((o, i) => `${String.fromCharCode(65 + i)}. ${o}`).join('\n');
+            user = `Question:\n${question}\n\nOptions:\n${labels}`;
+        }
         const json = await rawRequest(provider.buildRequest(sys, user, model, key));
         return provider.parse(json);
     }
 
-    async function callLLMWithRetry(question, options, isMulti, retries = 3) {
+    async function callLLMWithRetry(question, options, mode, retries = 3) {
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
-                return await callLLM(question, options, isMulti);
+                return await callLLM(question, options, mode);
             } catch (err) {
                 if (attempt === retries) throw err;
                 log(`Retry ${attempt}/${retries}: ${err.message || err}`, 'warn');
@@ -707,6 +720,144 @@
         return null;
     }
 
+    // ==================== ESSAY FILLING ====================
+    function escapeHtml(s) {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // Teks polos -> HTML: baris kosong jadi paragraf, newline tunggal jadi <br>
+    function textToHtml(text) {
+        return text.split(/\n{2,}/)
+            .map(p => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
+            .join('');
+    }
+
+    function fireInput(el) {
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    // Isi jawaban essay ke editor Moodle: textarea polos, Atto (contenteditable),
+    // atau TinyMCE (API global / iframe). Selalu isi textarea tersembunyi juga
+    // karena itu yang benar-benar disubmit form.
+    function fillEssay(qNode, text) {
+        const html = textToHtml(text);
+        let richHandled = false;
+
+        // Strategi 1: TinyMCE via API global. Di Tampermonkey, global halaman
+        // diakses lewat unsafeWindow (sandbox), bukan window.
+        const pageWin = (typeof unsafeWindow !== 'undefined') ? unsafeWindow : window;
+        try {
+            if (pageWin.tinymce && pageWin.tinymce.editors && pageWin.tinymce.editors.length) {
+                pageWin.tinymce.editors.forEach(ed => {
+                    const ta = ed.getElement && ed.getElement();
+                    if (ta && qNode.contains(ta)) {
+                        ed.setContent(html);
+                        if (ed.save) ed.save();
+                        richHandled = true;
+                    }
+                });
+            }
+        } catch (e) {}
+
+        // Strategi 2: Atto / contenteditable
+        const editable = qNode.querySelector('[contenteditable="true"], .editor_atto_content');
+        if (editable) {
+            editable.innerHTML = html;
+            fireInput(editable);
+            richHandled = true;
+        }
+
+        // Strategi 3: TinyMCE iframe (kalau API global tak terjangkau)
+        if (!richHandled) {
+            const iframe = qNode.querySelector('iframe');
+            if (iframe) {
+                try {
+                    const doc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
+                    if (doc && doc.body) {
+                        doc.body.innerHTML = html;
+                        fireInput(doc.body);
+                        richHandled = true;
+                    }
+                } catch (e) {}
+            }
+        }
+
+        // Strategi 4: textarea (form field sebenarnya)
+        const textarea = qNode.querySelector('textarea');
+        if (textarea) {
+            textarea.value = richHandled ? html : text;
+            fireInput(textarea);
+            return true;
+        }
+
+        return richHandled;
+    }
+
+    // Isi jawaban isian singkat (short answer / numerical) ke input teks.
+    function fillShort(qNode, text) {
+        const answer = text.trim().replace(/^["'\s]+|["'\s.]+$/g, '');
+        const input = qNode.querySelector(
+            '.answer input[type="text"], .answer input[type="number"], .answer input:not([type])'
+        );
+        if (input) {
+            input.focus();
+            input.value = answer;
+            fireInput(input);
+            return true;
+        }
+        const ta = qNode.querySelector('textarea');
+        if (ta) { ta.value = answer; fireInput(ta); return true; }
+        return false;
+    }
+
+    // ==================== QUESTION TYPE & TEXT ====================
+    // 'single' | 'multi' | 'essay' | 'short' | 'unknown'
+    function detectMode(qNode) {
+        const cls = qNode.classList;
+        if (qNode.querySelector('.answer input[type="checkbox"]')) return 'multi';
+        if (qNode.querySelector('.answer input[type="radio"]')) return 'single';
+        if (cls.contains('essay') ||
+            qNode.querySelector('.answer textarea, .answer [contenteditable="true"], .answer .editor_atto_content, .answer iframe')) {
+            return 'essay';
+        }
+        if (cls.contains('shortanswer') || cls.contains('numerical') ||
+            cls.contains('calculated') || cls.contains('calculatedsimple') ||
+            qNode.querySelector('.answer input[type="text"], .answer input[type="number"], .answer input:not([type])')) {
+            return 'short';
+        }
+        return 'unknown';
+    }
+
+    function cloneReplace(el, str) {
+        if (el.parentNode) el.parentNode.replaceChild(document.createTextNode(str), el);
+    }
+
+    // Ekstrak teks soal TERMASUK rumus. innerText melewatkan MathJax (script
+    // math/tex), MathML, dan rumus yang dirender sebagai <img alt="...">.
+    function extractQuestionText(qNode) {
+        const src = qNode.querySelector('.qtext') || qNode;
+        const clone = src.cloneNode(true);
+
+        clone.querySelectorAll('script[type^="math/tex"]').forEach(s => {
+            cloneReplace(s, ' ' + (s.textContent || '') + ' ');
+        });
+        clone.querySelectorAll('mjx-container').forEach(c => {
+            const mml = c.querySelector('math');
+            const tex = c.getAttribute('aria-label') || (mml ? mml.textContent : '') || '';
+            cloneReplace(c, ' ' + tex + ' ');
+        });
+        clone.querySelectorAll('.MathJax_Preview, span.MathJax').forEach(el => {
+            if (el.parentNode) el.parentNode.removeChild(el);
+        });
+        clone.querySelectorAll('img').forEach(img => {
+            const alt = img.getAttribute('alt');
+            if (alt && alt.trim()) cloneReplace(img, ' ' + alt + ' ');
+        });
+
+        return (clone.innerText || clone.textContent || '').replace(/\s+/g, ' ').trim();
+    }
+
     // ==================== PROCESSOR ====================
     async function startProcessing() {
         const activeProvider = PROVIDERS[cfg.provider];
@@ -749,9 +900,68 @@
             qNode.classList.remove('qbot-done', 'qbot-fail');
             qNode.classList.add('qbot-active');
 
-            const questionText = qText.innerText.trim();
+            const questionText = extractQuestionText(qNode);
             log(`Soal ${i + 1}: ${questionText.substring(0, 60)}...`, 'info');
 
+            const mode = detectMode(qNode);
+
+            // ----- ESSAY -----
+            if (mode === 'essay') {
+                log(`Soal ${i + 1}: tipe essay, menulis jawaban...`, 'info');
+                try {
+                    const answer = await callLLMWithRetry(questionText, [], 'essay');
+                    log(`AI: "${answer.substring(0, 70).replace(/\s+/g, ' ')}..."`, 'ai');
+                    if (fillEssay(qNode, answer)) {
+                        log(`Soal ${i + 1}: jawaban essay diisi (${answer.length} karakter)`, 'ok');
+                        qNode.classList.replace('qbot-active', 'qbot-done');
+                    } else {
+                        log(`Soal ${i + 1}: kolom jawaban essay tidak ditemukan.`, 'error');
+                        qNode.classList.replace('qbot-active', 'qbot-fail');
+                    }
+                } catch (err) {
+                    log(`Soal ${i + 1}: ${err.message || err}`, 'error');
+                    qNode.classList.replace('qbot-active', 'qbot-fail');
+                }
+                if (i < questions.length - 1) {
+                    const d = randomDelay();
+                    log(`Delay ${d}ms...`, 'info');
+                    await sleep(d);
+                }
+                continue;
+            }
+
+            // ----- ISIAN SINGKAT (short answer / numerical) -----
+            if (mode === 'short') {
+                log(`Soal ${i + 1}: tipe isian singkat...`, 'info');
+                try {
+                    const answer = await callLLMWithRetry(questionText, [], 'short');
+                    log(`AI: "${answer.replace(/\s+/g, ' ')}"`, 'ai');
+                    if (fillShort(qNode, answer)) {
+                        log(`Soal ${i + 1}: jawaban diisi.`, 'ok');
+                        qNode.classList.replace('qbot-active', 'qbot-done');
+                    } else {
+                        log(`Soal ${i + 1}: kolom jawaban tidak ditemukan.`, 'error');
+                        qNode.classList.replace('qbot-active', 'qbot-fail');
+                    }
+                } catch (err) {
+                    log(`Soal ${i + 1}: ${err.message || err}`, 'error');
+                    qNode.classList.replace('qbot-active', 'qbot-fail');
+                }
+                if (i < questions.length - 1) {
+                    const d = randomDelay();
+                    log(`Delay ${d}ms...`, 'info');
+                    await sleep(d);
+                }
+                continue;
+            }
+
+            if (mode === 'unknown') {
+                qNode.classList.replace('qbot-active', 'qbot-fail');
+                log(`Soal ${i + 1}: tipe soal tidak dikenali, skip.`, 'warn');
+                continue;
+            }
+
+            // ----- PILIHAN (radio/checkbox) -----
             const answerContainer = qNode.querySelector('.answer');
             if (!answerContainer) {
                 qNode.classList.replace('qbot-active', 'qbot-fail');
@@ -790,7 +1000,7 @@
             }
 
             try {
-                const aiResponse = await callLLMWithRetry(questionText, optionTexts, isMulti);
+                const aiResponse = await callLLMWithRetry(questionText, optionTexts, isMulti ? 'multi' : 'single');
                 log(`AI: "${aiResponse}"`, 'ai');
 
                 const match = matchAnswers(aiResponse, optionTexts);

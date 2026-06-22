@@ -1,0 +1,83 @@
+#qbot-panel {
+    position: fixed; top: 16px; right: 16px; width: 320px;
+    background: #111827; border: 1px solid #1f2937; border-radius: 12px;
+    color: #d1d5db; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px;
+    z-index: 999999; box-shadow: 0 20px 60px rgba(0,0,0,.5); transition: all .3s ease;
+}
+#qbot-panel.minimized .qbot-body { display: none; }
+#qbot-panel.minimized { width: auto; }
+.qbot-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; background: #1f2937; border-radius: 11px 11px 0 0;
+    cursor: move; user-select: none;
+}
+#qbot-panel.minimized .qbot-header { border-radius: 11px; }
+.qbot-header h3 { margin: 0; font-size: 13px; font-weight: 600; color: #60a5fa; }
+.qbot-hbtn {
+    background: none; border: none; color: #9ca3af; cursor: pointer;
+    font-size: 16px; padding: 2px 6px; border-radius: 4px; line-height: 1;
+}
+.qbot-hbtn:hover { color: #fff; background: #374151; }
+.qbot-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.qbot-field { display: flex; flex-direction: column; gap: 4px; }
+.qbot-field label {
+    font-size: 11px; color: #9ca3af; text-transform: uppercase;
+    letter-spacing: .5px; font-weight: 600; display: flex; justify-content: space-between; align-items: center;
+}
+.qbot-field label a { color: #60a5fa; text-transform: none; letter-spacing: 0; font-size: 10px; text-decoration: none; }
+.qbot-field label a:hover { text-decoration: underline; }
+.qbot-field input, .qbot-field select {
+    background: #1f2937; border: 1px solid #374151; border-radius: 6px;
+    padding: 7px 10px; color: #e5e7eb; font-size: 13px; outline: none; width: 100%; box-sizing: border-box;
+}
+.qbot-field input:focus, .qbot-field select:focus { border-color: #60a5fa; }
+.qbot-row { display: flex; align-items: center; justify-content: space-between; }
+.qbot-toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+.qbot-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+.qbot-toggle .slider {
+    position: absolute; inset: 0; background: #374151; border-radius: 10px;
+    cursor: pointer; transition: .2s;
+}
+.qbot-toggle .slider::before {
+    content: ''; position: absolute; width: 16px; height: 16px;
+    left: 2px; bottom: 2px; background: #9ca3af; border-radius: 50%; transition: .2s;
+}
+.qbot-toggle input:checked + .slider { background: #2563eb; }
+.qbot-toggle input:checked + .slider::before { transform: translateX(16px); background: #fff; }
+#qbot-start {
+    width: 100%; padding: 9px; border: none; border-radius: 8px;
+    font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s;
+}
+#qbot-start.idle { background: #2563eb; color: #fff; }
+#qbot-start.idle:hover { background: #3b82f6; }
+#qbot-start.running { background: #dc2626; color: #fff; }
+#qbot-start.running:hover { background: #ef4444; }
+#qbot-start:disabled { opacity: .5; cursor: not-allowed; }
+#qbot-log {
+    max-height: 200px; overflow-y: auto; background: #0b0f19; border-radius: 8px;
+    padding: 8px 10px; font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    font-size: 11px; line-height: 1.7;
+}
+#qbot-log::-webkit-scrollbar { width: 4px; }
+#qbot-log::-webkit-scrollbar-thumb { background: #374151; border-radius: 2px; }
+.log-info { color: #9ca3af; }
+.log-ok { color: #34d399; }
+.log-warn { color: #fbbf24; }
+.log-err { color: #f87171; }
+.log-ai { color: #a78bfa; }
+.qbot-status { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #6b7280; }
+.qbot-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.qbot-dot.idle { background: #6b7280; }
+.qbot-dot.run { background: #34d399; animation: qpulse 1.5s infinite; }
+.qbot-dot.err { background: #f87171; }
+@keyframes qpulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+.que.qbot-active { outline: 2px solid #fbbf24 !important; outline-offset: 3px; }
+.que.qbot-done { outline: 2px solid #34d399 !important; outline-offset: 3px; }
+.que.qbot-fail { outline: 2px solid #f87171 !important; outline-offset: 3px; }
+.qbot-key-wrap { position: relative; }
+.qbot-key-wrap input { padding-right: 36px; }
+.qbot-eye {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: #6b7280; cursor: pointer; font-size: 14px; padding: 2px;
+}
+.qbot-eye:hover { color: #d1d5db; }
