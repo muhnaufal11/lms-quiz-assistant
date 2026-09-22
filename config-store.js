@@ -9,14 +9,18 @@ function defaultConfig() {
         apiKeys: { groq: '', gemini: '', claude: '', deepseek: '', local: '' },
         models: {
             groq: 'llama-3.3-70b-versatile',
-            gemini: 'gemini-3.5-flash',
-            claude: 'claude-sonnet-4-6',
-            deepseek: 'deepseek-v4-flash',
+            gemini: 'gemini-2.0-flash',
+            claude: 'claude-3-7-sonnet-latest',
+            deepseek: 'deepseek-chat',
             local: 'llama3.1',
         },
         localBaseUrl: 'http://localhost:11434/v1',
         autoNext: true,
         autoStart: false,
+        autoSubmit: false,
+        autoQuiz: false,
+        urgentThresholdHours: 24,
+        stealthMode: true,
     };
 }
 
@@ -31,6 +35,10 @@ function load() {
             localBaseUrl: raw.localBaseUrl || def.localBaseUrl,
             autoNext: raw.autoNext !== undefined ? raw.autoNext : def.autoNext,
             autoStart: raw.autoStart !== undefined ? raw.autoStart : def.autoStart,
+            autoSubmit: raw.autoSubmit !== undefined ? raw.autoSubmit : def.autoSubmit,
+            autoQuiz: raw.autoQuiz !== undefined ? raw.autoQuiz : def.autoQuiz,
+            urgentThresholdHours: typeof raw.urgentThresholdHours === 'number' ? raw.urgentThresholdHours : def.urgentThresholdHours,
+            stealthMode: raw.stealthMode !== undefined ? raw.stealthMode : def.stealthMode,
         };
     } catch (e) {
         return def;
@@ -46,6 +54,10 @@ function save(patch) {
         localBaseUrl: patch.localBaseUrl || current.localBaseUrl,
         autoNext: patch.autoNext !== undefined ? patch.autoNext : current.autoNext,
         autoStart: patch.autoStart !== undefined ? patch.autoStart : current.autoStart,
+        autoSubmit: patch.autoSubmit !== undefined ? patch.autoSubmit : current.autoSubmit,
+        autoQuiz: patch.autoQuiz !== undefined ? patch.autoQuiz : current.autoQuiz,
+        urgentThresholdHours: typeof patch.urgentThresholdHours === 'number' ? patch.urgentThresholdHours : current.urgentThresholdHours,
+        stealthMode: patch.stealthMode !== undefined ? patch.stealthMode : current.stealthMode,
     };
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(merged, null, 2));
     return merged;

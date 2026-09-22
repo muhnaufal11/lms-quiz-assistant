@@ -1,13 +1,14 @@
 (function () {
     'use strict';
 
-    console.log('[QBot] Payload script executing (SEB v4.0).');
+    console.log('[QBot] Payload script executing (SEB v4.1 - Pure Shortcut Mode).');
 
     // ==================== PROMPTS ====================
     const SYS_SINGLE = 'You are a precise academic assistant. Analyze the quiz question and options. Reply with ONLY the single letter of the correct answer (e.g. B). No explanation, no extra text.';
     const SYS_MULTI = 'You are a precise academic assistant. Analyze the quiz question and options. Reply with ONLY the letters of ALL correct answers separated by commas (e.g. A, C). No explanation, no extra text.';
     const SYS_ESSAY = 'You are a knowledgeable academic assistant taking an exam. Write a clear, accurate, well-structured answer to the following essay question. Respond in the SAME LANGUAGE as the question (Indonesian question -> Indonesian answer). Write ONLY the answer itself — no preamble like "Here is the answer", no meta-commentary, no markdown headings. Use plain paragraphs. Keep it focused and appropriately detailed for an exam answer.';
     const SYS_SHORT = 'You are a precise exam assistant. Reply with ONLY the final answer: a number, single word, or very short phrase — nothing else. No explanation, no working steps, no full sentence, no trailing period, no units unless the answer is meaningless without them. Use the same language as the question. For a math problem, compute and output only the final result.';
+    const SYS_MATCHING = 'You are a precise academic assistant. Analyze the matching question. For each sub-question number, choose the exact matching option letter. Reply with ONLY line-by-line pairs like "1: B\n2: A". No explanation, no extra text.';
 
     // ==================== PROVIDERS ====================
     const PROVIDERS = {
@@ -17,10 +18,13 @@
             keyUrl: 'https://console.groq.com/keys',
             models: [
                 { id: 'llama-3.3-70b-versatile', name: 'LLaMA 3.3 70B' },
+                { id: 'deepseek-r1-distill-llama-70b', name: 'DeepSeek R1 70B' },
                 { id: 'llama-3.1-8b-instant', name: 'LLaMA 3.1 8B Instant' },
                 { id: 'llama3-70b-8192', name: 'LLaMA 3 70B' },
                 { id: 'llama3-8b-8192', name: 'LLaMA 3 8B' },
                 { id: 'gemma2-9b-it', name: 'Gemma 2 9B' },
+                { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B' },
+                { id: 'qwen-qwq-32b', name: 'Qwen QwQ 32B' },
             ],
             buildRequest: function (sys, user, model, key) {
                 return {
@@ -55,6 +59,10 @@
                 { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
                 { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash-Lite' },
                 { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+                { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
+                { id: 'gemini-2.0-flash-lite', name: 'Gemini 2.0 Flash-Lite' },
+                { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
+                { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
                 { id: 'gemma-4-31b-it', name: 'Gemma 4 31B' },
                 { id: 'gemma-4-26b-a4b-it', name: 'Gemma 4 26B A4B' },
                 { id: 'gemma-3-27b-it', name: 'Gemma 3 27B' },
@@ -102,6 +110,9 @@
                 { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6' },
                 { id: 'claude-opus-4-8', name: 'Claude Opus 4.8' },
                 { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5' },
+                { id: 'claude-3-7-sonnet-latest', name: 'Claude 3.7 Sonnet' },
+                { id: 'claude-3-5-sonnet-latest', name: 'Claude 3.5 Sonnet' },
+                { id: 'claude-3-5-haiku-latest', name: 'Claude 3.5 Haiku' },
             ],
             buildRequest: function (sys, user, model, key) {
                 function generateUUID() {
@@ -168,8 +179,11 @@
             keyHint: 'sk-...',
             keyUrl: 'https://platform.deepseek.com/api_keys',
             models: [
+                { id: 'deepseek-chat', name: 'DeepSeek Chat (V3)' },
+                { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner (R1)' },
                 { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash' },
                 { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro' },
+                { id: 'deepseek-coder', name: 'DeepSeek Coder' },
             ],
             buildRequest: function (sys, user, model, key) {
                 return {
@@ -207,6 +221,7 @@
                 { id: 'gemma2', name: 'gemma2' },
                 { id: 'mistral', name: 'mistral' },
                 { id: 'phi4', name: 'phi4' },
+                { id: 'deepseek-r1', name: 'deepseek-r1' },
             ],
             buildRequest: function (sys, user, model, key) {
                 var base = (cfg.localBaseUrl || 'http://localhost:11434/v1').replace(/\/+$/, '');
@@ -236,7 +251,7 @@
 
     var PROVIDER_KEYS = Object.keys(PROVIDERS);
 
-    // ==================== CONFIG (localStorage) ====================
+    // ==================== CONFIG (localStorage & Proxy) ====================
     function defaultConfig() {
         return {
             provider: 'groq',
@@ -249,8 +264,12 @@
                 local: PROVIDERS.local.models[0].id,
             },
             localBaseUrl: 'http://localhost:11434/v1',
+            autoQuiz: false,
+            urgentThresholdHours: 24,
             autoNext: true,
             autoStart: false,
+            autoSubmit: false,
+            stealthMode: true,
         };
     }
 
@@ -261,13 +280,15 @@
             apiKeys: Object.assign({}, def.apiKeys, raw.apiKeys || {}),
             models: Object.assign({}, def.models, raw.models || {}),
             localBaseUrl: raw.localBaseUrl || def.localBaseUrl,
+            autoQuiz: raw.autoQuiz !== undefined ? raw.autoQuiz : def.autoQuiz,
+            urgentThresholdHours: typeof raw.urgentThresholdHours === 'number' ? raw.urgentThresholdHours : def.urgentThresholdHours,
             autoNext: raw.autoNext !== undefined ? raw.autoNext : def.autoNext,
             autoStart: raw.autoStart !== undefined ? raw.autoStart : def.autoStart,
+            autoSubmit: raw.autoSubmit !== undefined ? raw.autoSubmit : def.autoSubmit,
+            stealthMode: raw.stealthMode !== undefined ? raw.stealthMode : def.stealthMode,
         };
     }
 
-    // Config primer dari server (config.json di proxy). localStorage sebagai cadangan
-    // bila server tidak terjangkau (mis. dibuka di luar proxy).
     function localFallbackConfig() {
         try { return applyConfig(JSON.parse(localStorage.getItem('qbot_config') || '{}')); }
         catch (e) { return defaultConfig(); }
@@ -278,7 +299,6 @@
             .then(function (r) { return r.json(); })
             .then(function (j) { return applyConfig(j); })
             .catch(function () { return localFallbackConfig(); });
-        // Jaring: kalau fetch menggantung, tetap render panel dalam 3 detik
         var timeout = new Promise(function (resolve) {
             setTimeout(function () { resolve(localFallbackConfig()); }, 3000);
         });
@@ -296,9 +316,11 @@
 
     var cfg = defaultConfig();
     var running = false;
+    var paused = false;
     var stopFlag = false;
     var countingDown = false;
     var countdownTimer = null;
+    var currentQuestionIndex = 0;
 
     // ==================== HELPERS ====================
     var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
@@ -323,7 +345,7 @@
         return common / Math.max(setA.size, setB.size);
     }
 
-    // SEB Trusted Event Emulation — bypass isTrusted detection
+    // SEB Trusted Event Emulation
     function simulateTrustedClick(el) {
         var rect = el.getBoundingClientRect();
         var evt = new MouseEvent('click', {
@@ -336,16 +358,24 @@
         el.dispatchEvent(evt);
     }
 
-    // ==================== UI ====================
+    // ==================== UI PANEL (OPTIONAL / UNHIDE VIA ALT+H) ====================
+    var panelEl = null;
     var logEl, statusDot, statusText, startBtn, keyInput, modelSelect, keyLink;
     var baseUrlField, baseUrlInput, modelText, modelList;
 
     function createPanel() {
+        if (document.getElementById('qbot-panel')) return;
         var panel = document.createElement('div');
         panel.id = 'qbot-panel';
+        if (cfg.stealthMode) {
+            panel.style.display = 'none';
+        }
         panel.innerHTML =
             '<div class="qbot-header" id="qbot-drag">' +
-                '<h3>Quiz Assistant <sup style="color:#6b7280;font-size:9px">SEB</sup></h3>' +
+                '<div class="qbot-header-left">' +
+                    '<span class="qbot-header-badge">✦</span>' +
+                    '<h3>Quiz Assistant <sup style="color:#818cf8;font-size:9px;font-weight:600">SEB</sup></h3>' +
+                '</div>' +
                 '<button class="qbot-hbtn" id="qbot-min" title="Minimize">&#x2014;</button>' +
             '</div>' +
             '<div class="qbot-body">' +
@@ -374,21 +404,45 @@
                     '<input type="text" id="qbot-model-text" list="qbot-model-list" style="display:none" placeholder="nama model lokal (mis. llama3.1)" />' +
                     '<datalist id="qbot-model-list"></datalist>' +
                 '</div>' +
-                '<div class="qbot-row">' +
-                    '<span style="font-size:12px;color:#9ca3af">Auto Next Page</span>' +
-                    '<label class="qbot-toggle">' +
-                        '<input type="checkbox" id="qbot-autonext"' + (cfg.autoNext ? ' checked' : '') + ' />' +
-                        '<span class="slider"></span>' +
-                    '</label>' +
+                '<div class="qbot-card-autopilot">' +
+                    '<div class="qbot-row">' +
+                        '<div>' +
+                            '<div style="font-size:12px;font-weight:700;color:#93c5fd;display:flex;align-items:center;gap:4px">' +
+                                '<span>⚡</span> Auto Pilot Kuis <span style="font-size:10px;font-weight:500;color:#60a5fa;opacity:0.85">(Alt+A)</span>' +
+                            '</div>' +
+                            '<div style="font-size:10px;color:#94a3b8;margin-top:2px">Deteksi & prioritaskan jatuh tempo</div>' +
+                        '</div>' +
+                        '<label class="qbot-toggle">' +
+                            '<input type="checkbox" id="qbot-autoquiz"' + (cfg.autoQuiz ? ' checked' : '') + ' />' +
+                            '<span class="slider"></span>' +
+                        '</label>' +
+                    '</div>' +
                 '</div>' +
-                '<div class="qbot-row">' +
-                    '<span style="font-size:12px;color:#9ca3af">Auto Start (saat load)</span>' +
-                    '<label class="qbot-toggle">' +
-                        '<input type="checkbox" id="qbot-autostart"' + (cfg.autoStart ? ' checked' : '') + ' />' +
-                        '<span class="slider"></span>' +
-                    '</label>' +
+                '<div class="qbot-options-group">' +
+                    '<div class="qbot-opt-row">' +
+                        '<span class="qbot-opt-label">Auto Next Page</span>' +
+                        '<label class="qbot-toggle">' +
+                            '<input type="checkbox" id="qbot-autonext"' + (cfg.autoNext ? ' checked' : '') + ' />' +
+                            '<span class="slider"></span>' +
+                        '</label>' +
+                    '</div>' +
+                    '<div class="qbot-opt-row">' +
+                        '<span class="qbot-opt-label">Auto Start (saat load)</span>' +
+                        '<label class="qbot-toggle">' +
+                            '<input type="checkbox" id="qbot-autostart"' + (cfg.autoStart ? ' checked' : '') + ' />' +
+                            '<span class="slider"></span>' +
+                        '</label>' +
+                    '</div>' +
+                    '<div class="qbot-opt-row">' +
+                        '<span class="qbot-opt-label">Auto Submit (Summary)</span>' +
+                        '<label class="qbot-toggle">' +
+                            '<input type="checkbox" id="qbot-autosubmit"' + (cfg.autoSubmit ? ' checked' : '') + ' />' +
+                            '<span class="slider"></span>' +
+                        '</label>' +
+                    '</div>' +
                 '</div>' +
-                '<button id="qbot-start" class="idle">Start</button>' +
+                '<div id="qbot-prompt-box-area"></div>' +
+                '<button id="qbot-start" class="idle">Start (Alt+S)</button>' +
                 '<div class="qbot-status">' +
                     '<span class="qbot-dot idle" id="qbot-dot"></span>' +
                     '<span id="qbot-stxt">Idle</span>' +
@@ -396,6 +450,7 @@
                 '<div id="qbot-log"></div>' +
             '</div>';
         document.body.appendChild(panel);
+        panelEl = panel;
 
         logEl = document.getElementById('qbot-log');
         statusDot = document.getElementById('qbot-dot');
@@ -446,6 +501,14 @@
             saveConfig(cfg);
         });
 
+        document.getElementById('qbot-autoquiz').addEventListener('change', function (e) {
+            cfg.autoQuiz = e.target.checked;
+            saveConfig(cfg);
+            log(cfg.autoQuiz ? '[Auto Pilot] AKTIF — Deteksi kuis & utamakan jatuh tempo.' : '[Auto Pilot] NONAKTIF.', 'info');
+            clearPromptBox();
+            evaluateCurrentPage();
+        });
+
         document.getElementById('qbot-autonext').addEventListener('change', function (e) {
             cfg.autoNext = e.target.checked;
             saveConfig(cfg);
@@ -457,12 +520,43 @@
             log(cfg.autoStart ? 'Auto Start aktif.' : 'Auto Start nonaktif.', 'info');
         });
 
+        document.getElementById('qbot-autosubmit').addEventListener('change', function (e) {
+            cfg.autoSubmit = e.target.checked;
+            saveConfig(cfg);
+            log(cfg.autoSubmit ? 'Auto Submit aktif.' : 'Auto Submit nonaktif.', 'info');
+        });
+
         startBtn.addEventListener('click', function () {
+            if (isSummaryPage()) {
+                if (submitCountdown) {
+                    cancelSubmitCountdown();
+                } else {
+                    submitQuizAttempt();
+                }
+                return;
+            }
+            if (isQuizViewPage()) {
+                if (viewCountdownTimer) {
+                    cancelViewCountdown();
+                } else {
+                    executeStartQuiz();
+                }
+                return;
+            }
+            if (isMyCoursesPage()) {
+                if (viewCountdownTimer) {
+                    cancelViewCountdown();
+                } else {
+                    scanAllMyCourses();
+                }
+                return;
+            }
             if (countingDown) {
                 cancelCountdown();
-            } else if (running) {
-                stopFlag = true;
-                log('Stopping...', 'warn');
+            } else if (running && !paused) {
+                pauseProcessing();
+            } else if (paused) {
+                resumeProcessing();
             } else {
                 startProcessing();
             }
@@ -471,7 +565,17 @@
         makeDraggable(panel, document.getElementById('qbot-drag'));
     }
 
+    function togglePanelVisibility() {
+        if (!panelEl) createPanel();
+        if (panelEl) {
+            var isHidden = panelEl.style.display === 'none';
+            panelEl.style.display = isHidden ? 'block' : 'none';
+            console.log('[QBot] Panel visibility toggled:', isHidden ? 'Visible' : 'Hidden');
+        }
+    }
+
     function syncProviderUI() {
+        if (!keyInput) return;
         var provider = PROVIDERS[cfg.provider];
         var isCustom = !!provider.custom;
 
@@ -490,7 +594,9 @@
         } else {
             modelText.style.display = 'none';
             modelSelect.style.display = 'block';
-            if (!provider.models.some(function (m) { return m.id === cfg.models[cfg.provider]; })) {
+            if (cfg.models[cfg.provider] && !provider.models.some(function (m) { return m.id === cfg.models[cfg.provider]; })) {
+                provider.models.unshift({ id: cfg.models[cfg.provider], name: cfg.models[cfg.provider] + ' (Custom/Tersimpan)' });
+            } else if (!cfg.models[cfg.provider] && provider.models.length > 0) {
                 cfg.models[cfg.provider] = provider.models[0].id;
                 saveConfig(cfg);
             }
@@ -513,8 +619,10 @@
         });
         document.addEventListener('mousemove', function (e) {
             if (!dragging) return;
-            el.style.left = (e.clientX - offsetX) + 'px';
-            el.style.top = (e.clientY - offsetY) + 'px';
+            var newLeft = Math.max(10, Math.min(window.innerWidth - el.offsetWidth - 10, e.clientX - offsetX));
+            var newTop = Math.max(10, Math.min(window.innerHeight - el.offsetHeight - 10, e.clientY - offsetY));
+            el.style.left = newLeft + 'px';
+            el.style.top = newTop + 'px';
             el.style.right = 'auto';
         });
         document.addEventListener('mouseup', function () { dragging = false; });
@@ -522,6 +630,8 @@
 
     function log(msg, type) {
         type = type || 'info';
+        console.log('[QBot Log][' + type.toUpperCase() + '] ' + msg);
+        if (!logEl) return;
         var cls = { info: 'log-info', ok: 'log-ok', warn: 'log-warn', error: 'log-err', ai: 'log-ai' };
         var d = new Date();
         var time = [d.getHours(), d.getMinutes(), d.getSeconds()].map(function (n) { return (n < 10 ? '0' : '') + n; }).join(':');
@@ -530,14 +640,24 @@
     }
 
     function setStatus(state) {
-        statusDot.className = 'qbot-dot ' + (state === 'running' ? 'run' : state === 'error' ? 'err' : 'idle');
-        var labels = { idle: 'Idle', running: 'Processing...', done: 'Done', error: 'Error', stopped: 'Stopped' };
+        if (!statusDot || !statusText) return;
+        statusDot.className = 'qbot-dot ' + (state === 'running' ? 'run' : state === 'paused' ? 'idle' : state === 'error' ? 'err' : 'idle');
+        var labels = { idle: 'Idle', running: 'Processing...', paused: 'Paused (Alt+S to resume)', done: 'Done', error: 'Error', stopped: 'Stopped' };
         statusText.textContent = labels[state] || state;
     }
 
-    function setButton(isRunning) {
-        startBtn.className = isRunning ? 'running' : 'idle';
-        startBtn.textContent = isRunning ? 'Stop' : 'Start';
+    function setButton(state) {
+        if (!startBtn) return;
+        if (state === 'running') {
+            startBtn.className = 'running';
+            startBtn.textContent = 'Pause (Alt+P)';
+        } else if (state === 'paused') {
+            startBtn.className = 'idle';
+            startBtn.textContent = 'Resume (Alt+S)';
+        } else {
+            startBtn.className = 'idle';
+            startBtn.textContent = 'Start (Alt+S)';
+        }
     }
 
     // ==================== API (via SEB Proxy) ====================
@@ -564,7 +684,6 @@
         });
     }
 
-    // mode: 'single' | 'multi' | 'essay'
     function callLLM(question, options, mode) {
         var provider = PROVIDERS[cfg.provider];
         var key = cfg.apiKeys[cfg.provider];
@@ -576,6 +695,9 @@
         } else if (mode === 'short') {
             sys = SYS_SHORT;
             user = 'Question:\n' + question;
+        } else if (mode === 'matching') {
+            sys = SYS_MATCHING;
+            user = 'Matching question:\n' + question + '\n\nOptions:\n' + options.join('\n');
         } else {
             sys = mode === 'multi' ? SYS_MULTI : SYS_SINGLE;
             var labels = options.map(function (o, i) { return String.fromCharCode(65 + i) + '. ' + o; }).join('\n');
@@ -599,13 +721,26 @@
         return tryOnce();
     }
 
-    // ==================== ANSWER MATCHING ====================
+    // ==================== PARSER & MATCHING ENGINE ====================
     function parseLetters(response) {
-        var cleaned = response.replace(/[^a-zA-Z,]/g, '');
-        var letters = cleaned.split(',').map(function (s) { return s.trim().toUpperCase(); }).filter(function (s) { return /^[A-Z]$/.test(s); });
-        if (letters.length > 0) return letters;
-        var firstLetter = response.trim().match(/^([A-Za-z])/);
-        if (firstLetter && /^[A-Z]$/i.test(firstLetter[1])) return [firstLetter[1].toUpperCase()];
+        if (!response) return [];
+        var text = response.trim();
+        var prefixMatch = text.match(/(?:jawaban|answer|option|pilihan|opsi)(?:\s+yang\s+benar)?\s*[:\-\.]?\s*([A-Z])\b/i);
+        if (prefixMatch && prefixMatch[1]) {
+            return [prefixMatch[1].toUpperCase()];
+        }
+        var commaMatch = text.match(/^([A-Z](?:\s*,\s*[A-Z])+)/i);
+        if (commaMatch) {
+            return commaMatch[1].split(',').map(function (s) { return s.trim().toUpperCase(); });
+        }
+        var singleMatch = text.match(/^(?:\[)?([A-Z])(?:\]|\.|\)|\:|\s|$)/i);
+        if (singleMatch) {
+            return [singleMatch[1].toUpperCase()];
+        }
+        var isolated = text.match(/\b([A-Z])\b/);
+        if (isolated) {
+            return [isolated[1].toUpperCase()];
+        }
         return [];
     }
 
@@ -638,12 +773,11 @@
         return null;
     }
 
-    // ==================== ESSAY FILLING ====================
+    // ==================== FORM FILLING ====================
     function escapeHtml(s) {
         return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    // Teks polos -> HTML: baris kosong jadi paragraf, newline tunggal jadi <br>
     function textToHtml(text) {
         return text.split(/\n{2,}/).map(function (p) {
             return '<p>' + escapeHtml(p).replace(/\n/g, '<br>') + '</p>';
@@ -655,28 +789,23 @@
         el.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
-    // Isi jawaban essay ke editor. Moodle bisa pakai: textarea polos,
-    // editor Atto (contenteditable), atau TinyMCE (iframe / API global).
-    // Selalu isi textarea tersembunyi juga karena itu yang disubmit form.
     function fillEssay(qNode, text) {
         var html = textToHtml(text);
         var richHandled = false;
 
-        // Strategi 1: TinyMCE via API global (script kita jalan di page context)
         try {
             if (window.tinymce && window.tinymce.editors && window.tinymce.editors.length) {
                 window.tinymce.editors.forEach(function (ed) {
                     var ta = ed.getElement && ed.getElement();
                     if (ta && qNode.contains(ta)) {
                         ed.setContent(html);
-                        if (ed.save) ed.save(); // sync ke textarea
+                        if (ed.save) ed.save();
                         richHandled = true;
                     }
                 });
             }
         } catch (e) {}
 
-        // Strategi 2: Atto / contenteditable
         var editable = qNode.querySelector('[contenteditable="true"], .editor_atto_content');
         if (editable) {
             editable.innerHTML = html;
@@ -684,7 +813,6 @@
             richHandled = true;
         }
 
-        // Strategi 3: TinyMCE iframe (kalau API global tak terjangkau)
         if (!richHandled) {
             var iframe = qNode.querySelector('iframe');
             if (iframe) {
@@ -699,21 +827,21 @@
             }
         }
 
-        // Strategi 4: textarea (form field sebenarnya). Editor rich simpan HTML,
-        // textarea polos simpan teks biasa.
         var textarea = qNode.querySelector('textarea');
         if (textarea) {
             textarea.value = richHandled ? html : text;
             fireInput(textarea);
+            textarea.dispatchEvent(new Event('blur', { bubbles: true }));
             return true;
         }
 
         return richHandled;
     }
 
-    // Isi jawaban isian singkat (short answer / numerical) ke input teks.
     function fillShort(qNode, text) {
-        var answer = text.trim().replace(/^["'\s]+|["'\s.]+$/g, '');
+        var answer = text.trim();
+        answer = answer.replace(/^(?:answer|jawaban|hasil|x|y)\s*[:\=]\s*/i, '');
+        answer = answer.replace(/^["'\s]+|["'\s.]+$/g, '');
         var input = qNode.querySelector(
             '.answer input[type="text"], .answer input[type="number"], .answer input:not([type])'
         );
@@ -721,20 +849,61 @@
             input.focus();
             input.value = answer;
             fireInput(input);
+            input.dispatchEvent(new Event('blur', { bubbles: true }));
             return true;
         }
-        // Fallback: sebagian "isian singkat" pakai textarea kecil
         var ta = qNode.querySelector('textarea');
-        if (ta) { ta.value = answer; fireInput(ta); return true; }
+        if (ta) {
+            ta.value = answer;
+            fireInput(ta);
+            ta.dispatchEvent(new Event('blur', { bubbles: true }));
+            return true;
+        }
         return false;
     }
 
-    // ==================== QUESTION TYPE & TEXT ====================
-    // Tentukan tipe soal: 'single' | 'multi' | 'essay' | 'short' | 'unknown'
+    function fillMatching(qNode, aiResponse) {
+        var selects = qNode.querySelectorAll('table.matching select, .answer select');
+        if (selects.length === 0) return false;
+        var lines = aiResponse.split('\n');
+        var map = {};
+        lines.forEach(function (line) {
+            var m = line.match(/^(\d+)\s*[:\-\=]\s*([A-Z])/i);
+            if (m) {
+                map[parseInt(m[1])] = m[2].toUpperCase();
+            }
+        });
+        var filled = 0;
+        selects.forEach(function (sel, i) {
+            var targetLetter = map[i + 1];
+            if (!targetLetter) return;
+            var targetIdx = targetLetter.charCodeAt(0) - 65 + 1;
+            var options = sel.options;
+            if (targetIdx > 0 && targetIdx < options.length) {
+                sel.selectedIndex = targetIdx;
+                fireInput(sel);
+                filled++;
+            } else {
+                for (var j = 0; j < options.length; j++) {
+                    if (options[j].text.toUpperCase().indexOf(targetLetter) === 0) {
+                        sel.selectedIndex = j;
+                        fireInput(sel);
+                        filled++;
+                        break;
+                    }
+                }
+            }
+        });
+        return filled > 0;
+    }
+
+    // ==================== QUESTION TYPE & TEXT EXTRACTION ====================
     function detectMode(qNode) {
         var cls = qNode.classList;
         if (qNode.querySelector('.answer input[type="checkbox"]')) return 'multi';
         if (qNode.querySelector('.answer input[type="radio"]')) return 'single';
+        if (qNode.querySelector('table.matching, .answer select')) return 'matching';
+        if (qNode.querySelector('.qtext select, .formulation select')) return 'gapselect';
         if (cls.contains('essay') ||
             qNode.querySelector('.answer textarea, .answer [contenteditable="true"], .answer .editor_atto_content, .answer iframe')) {
             return 'essay';
@@ -747,30 +916,36 @@
         return 'unknown';
     }
 
-    // Ekstrak teks soal TERMASUK rumus matematika. innerText melewatkan MathJax
-    // (script math/tex), MathML, dan rumus yang dirender sebagai <img alt="...">.
     function extractQuestionText(qNode) {
         var src = qNode.querySelector('.qtext') || qNode;
         var clone = src.cloneNode(true);
 
-        // MathJax v2: <script type="math/tex">LATEX</script> (sumber LaTeX)
-        clone.querySelectorAll('script[type^="math/tex"]').forEach(function (s) {
-            clone_replace(s, ' ' + (s.textContent || '') + ' ');
+        clone.querySelectorAll('.accesshide, .info, .clearchoice, .questionflag').forEach(function (el) {
+            if (el.parentNode) el.parentNode.removeChild(el);
         });
-        // MathJax v3: <mjx-container> (ambil aria-label / MathML)
+
+        clone.querySelectorAll('.katex annotation[encoding*="tex"]').forEach(function (ann) {
+            var kParent = ann.closest('.katex') || ann.parentNode;
+            clone_replace(kParent, ' $' + (ann.textContent || '').trim() + '$ ');
+        });
+
+        clone.querySelectorAll('script[type^="math/tex"]').forEach(function (s) {
+            clone_replace(s, ' $' + (s.textContent || '').trim() + '$ ');
+        });
+
         clone.querySelectorAll('mjx-container').forEach(function (c) {
             var mml = c.querySelector('math');
             var tex = c.getAttribute('aria-label') || (mml ? mml.textContent : '') || '';
-            clone_replace(c, ' ' + tex + ' ');
+            clone_replace(c, ' $' + tex.trim() + '$ ');
         });
-        // Sisa render MathJax v2 (span) — buang agar tak jadi teks acak
+
         clone.querySelectorAll('.MathJax_Preview, span.MathJax').forEach(function (el) {
             if (el.parentNode) el.parentNode.removeChild(el);
         });
-        // Rumus sebagai gambar (filter TeX Moodle): alt berisi LaTeX
+
         clone.querySelectorAll('img').forEach(function (img) {
             var alt = img.getAttribute('alt');
-            if (alt && alt.trim()) clone_replace(img, ' ' + alt + ' ');
+            if (alt && alt.trim()) clone_replace(img, ' ' + alt.trim() + ' ');
         });
 
         var text = (clone.innerText || clone.textContent || '').replace(/\s+/g, ' ').trim();
@@ -781,7 +956,7 @@
         if (el.parentNode) el.parentNode.replaceChild(document.createTextNode(str), el);
     }
 
-    // ==================== PROCESSOR ====================
+    // ==================== PROCESSOR LOOP ====================
     function startProcessing() {
         var activeProvider = PROVIDERS[cfg.provider];
         if (!activeProvider.keyOptional && !cfg.apiKeys[cfg.provider]) {
@@ -796,11 +971,43 @@
         }
 
         running = true;
+        paused = false;
         stopFlag = false;
-        setButton(true);
+        currentQuestionIndex = 0;
+        setButton('running');
         setStatus('running');
         log('Mulai (' + PROVIDERS[cfg.provider].name + ' / ' + cfg.models[cfg.provider] + ')', 'ok');
 
+        processQuestions();
+    }
+
+    function pauseProcessing() {
+        if (!running || paused) return;
+        paused = true;
+        setButton('paused');
+        setStatus('paused');
+        log('Pengisian dijeda sementara (Alt+S untuk lanjut).', 'warn');
+    }
+
+    function resumeProcessing() {
+        if (!running || !paused) return;
+        paused = false;
+        setButton('running');
+        setStatus('running');
+        log('Melanjutkan pengisian jawaban...', 'ok');
+        processQuestions();
+    }
+
+    function stopProcessing() {
+        running = false;
+        paused = false;
+        stopFlag = true;
+        setButton('idle');
+        setStatus('stopped');
+        log('Dihentikan oleh user (Alt+X).', 'warn');
+    }
+
+    function processQuestions() {
         var questions = document.querySelectorAll('.que');
         if (questions.length === 0) {
             log('Tidak ada soal ditemukan di halaman ini.', 'warn');
@@ -808,14 +1015,9 @@
             return;
         }
 
-        log('Ditemukan ' + questions.length + ' soal.', 'info');
-
-        var i = 0;
-
-        // Maju ke soal berikutnya dengan delay acak (anti-deteksi).
         function advance() {
-            i++;
-            if (i < questions.length && !stopFlag) {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length && !stopFlag && !paused) {
                 var d = randomDelay();
                 log('Delay ' + d + 'ms...', 'info');
                 sleep(d).then(processNext);
@@ -826,82 +1028,81 @@
 
         function processNext() {
             if (stopFlag) { finish('stopped'); return; }
-            if (i >= questions.length) { afterAllQuestions(); return; }
+            if (paused) { log('Sedang dipause pada soal ' + (currentQuestionIndex + 1), 'warn'); return; }
+            if (currentQuestionIndex >= questions.length) { afterAllQuestions(); return; }
 
-            var qNode = questions[i];
+            var qNode = questions[currentQuestionIndex];
             var qText = qNode.querySelector('.qtext');
             if (!qText) {
-                log('Soal ' + (i + 1) + ': tidak bisa dibaca, skip.', 'warn');
-                i++; processNext();
+                log('Soal ' + (currentQuestionIndex + 1) + ': tidak bisa dibaca, skip.', 'warn');
+                currentQuestionIndex++; processNext();
                 return;
             }
 
-            qNode.classList.remove('qbot-done', 'qbot-fail');
-            qNode.classList.add('qbot-active');
-
             var questionText = extractQuestionText(qNode);
-            log('Soal ' + (i + 1) + ': ' + questionText.substring(0, 60) + '...', 'info');
+            log('Soal ' + (currentQuestionIndex + 1) + ': ' + questionText.substring(0, 60) + '...', 'info');
 
             var mode = detectMode(qNode);
 
             // ----- ESSAY -----
             if (mode === 'essay') {
-                log('Soal ' + (i + 1) + ': tipe essay, menulis jawaban...', 'info');
+                log('Soal ' + (currentQuestionIndex + 1) + ': tipe essay...', 'info');
                 callLLMWithRetry(questionText, [], 'essay')
                     .then(function (answer) {
                         log('AI: "' + answer.substring(0, 70).replace(/\s+/g, ' ') + '..."', 'ai');
                         var ok = fillEssay(qNode, answer);
-                        if (ok) {
-                            log('Soal ' + (i + 1) + ': jawaban essay diisi (' + answer.length + ' karakter)', 'ok');
-                            qNode.classList.replace('qbot-active', 'qbot-done');
-                        } else {
-                            log('Soal ' + (i + 1) + ': kolom jawaban essay tidak ditemukan.', 'error');
-                            qNode.classList.replace('qbot-active', 'qbot-fail');
-                        }
+                        log('Soal ' + (currentQuestionIndex + 1) + (ok ? ': essay diisi.' : ': kolom essay tak ditemukan.'), ok ? 'ok' : 'error');
                     })
-                    .catch(function (err) {
-                        log('Soal ' + (i + 1) + ': ' + (err.message || err), 'error');
-                        qNode.classList.replace('qbot-active', 'qbot-fail');
-                    })
+                    .catch(function (err) { log('Soal ' + (currentQuestionIndex + 1) + ': ' + (err.message || err), 'error'); })
                     .then(advance);
                 return;
             }
 
-            // ----- ISIAN SINGKAT (short answer / numerical) -----
+            // ----- ISIAN SINGKAT -----
             if (mode === 'short') {
-                log('Soal ' + (i + 1) + ': tipe isian singkat...', 'info');
+                log('Soal ' + (currentQuestionIndex + 1) + ': tipe isian singkat...', 'info');
                 callLLMWithRetry(questionText, [], 'short')
                     .then(function (answer) {
-                        log('AI: "' + answer.replace(/\s+/g, ' ') + '"', 'ai');
+                        log('AI: "' + answer + '"', 'ai');
                         var ok = fillShort(qNode, answer);
-                        if (ok) {
-                            log('Soal ' + (i + 1) + ': jawaban diisi.', 'ok');
-                            qNode.classList.replace('qbot-active', 'qbot-done');
-                        } else {
-                            log('Soal ' + (i + 1) + ': kolom jawaban tidak ditemukan.', 'error');
-                            qNode.classList.replace('qbot-active', 'qbot-fail');
-                        }
+                        log('Soal ' + (currentQuestionIndex + 1) + (ok ? ': jawaban diisi.' : ': kolom tak ditemukan.'), ok ? 'ok' : 'error');
                     })
-                    .catch(function (err) {
-                        log('Soal ' + (i + 1) + ': ' + (err.message || err), 'error');
-                        qNode.classList.replace('qbot-active', 'qbot-fail');
+                    .catch(function (err) { log('Soal ' + (currentQuestionIndex + 1) + ': ' + (err.message || err), 'error'); })
+                    .then(advance);
+                return;
+            }
+
+            // ----- MATCHING / MENJODOHKAN -----
+            if (mode === 'matching') {
+                log('Soal ' + (currentQuestionIndex + 1) + ': tipe matching...', 'info');
+                var selects = qNode.querySelectorAll('table.matching select, .answer select');
+                var matchOptions = [];
+                if (selects.length > 0 && selects[0].options) {
+                    for (var m = 0; m < selects[0].options.length; m++) {
+                        matchOptions.push(String.fromCharCode(65 + m) + '. ' + selects[0].options[m].text);
+                    }
+                }
+                callLLMWithRetry(questionText, matchOptions, 'matching')
+                    .then(function (answer) {
+                        log('AI: "' + answer.replace(/\n/g, ' | ') + '"', 'ai');
+                        var ok = fillMatching(qNode, answer);
+                        log('Soal ' + (currentQuestionIndex + 1) + (ok ? ': matching diisi.' : ': gagal matching.'), ok ? 'ok' : 'error');
                     })
+                    .catch(function (err) { log('Soal ' + (currentQuestionIndex + 1) + ': ' + (err.message || err), 'error'); })
                     .then(advance);
                 return;
             }
 
             if (mode === 'unknown') {
-                qNode.classList.replace('qbot-active', 'qbot-fail');
-                log('Soal ' + (i + 1) + ': tipe soal tidak dikenali, skip.', 'warn');
+                log('Soal ' + (currentQuestionIndex + 1) + ': tipe tidak dikenali, skip.', 'warn');
                 advance();
                 return;
             }
 
-            // ----- PILIHAN (radio/checkbox) -----
+            // ----- PILIHAN GANDA (radio/checkbox) -----
             var answerContainer = qNode.querySelector('.answer');
             if (!answerContainer) {
-                qNode.classList.replace('qbot-active', 'qbot-fail');
-                log('Soal ' + (i + 1) + ': tidak ada pilihan jawaban.', 'warn');
+                log('Soal ' + (currentQuestionIndex + 1) + ': tidak ada pilihan jawaban.', 'warn');
                 advance();
                 return;
             }
@@ -919,20 +1120,10 @@
                     optionTexts.push(text);
                     optionInputs.push(inp);
                 });
-            } else {
-                var divs = answerContainer.querySelectorAll('div, label');
-                divs.forEach(function (d) {
-                    var inp = d.querySelector('input[type="radio"], input[type="checkbox"]');
-                    if (inp) {
-                        optionTexts.push(d.innerText.trim());
-                        optionInputs.push(inp);
-                    }
-                });
             }
 
             if (optionTexts.length === 0) {
-                qNode.classList.replace('qbot-active', 'qbot-fail');
-                log('Soal ' + (i + 1) + ': gagal parsing opsi jawaban.', 'error');
+                log('Soal ' + (currentQuestionIndex + 1) + ': gagal parsing opsi.', 'error');
                 advance();
                 return;
             }
@@ -940,46 +1131,44 @@
             callLLMWithRetry(questionText, optionTexts, isMulti ? 'multi' : 'single')
                 .then(function (aiResponse) {
                     log('AI: "' + aiResponse + '"', 'ai');
-
                     var match = matchAnswers(aiResponse, optionTexts);
                     if (match) {
                         match.indices.forEach(function (idx) { simulateTrustedClick(optionInputs[idx]); });
                         var letters = match.indices.map(function (idx) { return String.fromCharCode(65 + idx); }).join(', ');
-                        log('Soal ' + (i + 1) + ': dipilih ' + letters + ' (' + match.method + ')', 'ok');
-                        qNode.classList.replace('qbot-active', 'qbot-done');
+                        log('Soal ' + (currentQuestionIndex + 1) + ': dipilih ' + letters, 'ok');
                     } else {
-                        log('Soal ' + (i + 1) + ': gagal mencocokkan jawaban.', 'error');
-                        qNode.classList.replace('qbot-active', 'qbot-fail');
+                        log('Soal ' + (currentQuestionIndex + 1) + ': gagal mencocokkan jawaban.', 'error');
                     }
                 })
-                .catch(function (err) {
-                    log('Soal ' + (i + 1) + ': ' + (err.message || err), 'error');
-                    qNode.classList.replace('qbot-active', 'qbot-fail');
-                })
+                .catch(function (err) { log('Soal ' + (currentQuestionIndex + 1) + ': ' + (err.message || err), 'error'); })
                 .then(advance);
         }
 
         function afterAllQuestions() {
-            if (stopFlag) { finish('stopped'); return; }
+            if (stopFlag || paused) return;
 
-            if (cfg.autoNext) {
+            if (cfg.autoNext || cfg.autoQuiz) {
                 var nextBtn = document.querySelector(
-                    'input[value="Next page"], input[value="Next"], input[id="mod_quiz-next-nav"], .submitbtns .mod_quiz-next-nav'
+                    'input[value="Next page"], input[value="Next"], input[id="mod_quiz-next-nav"], .submitbtns .mod_quiz-next-nav, ' +
+                    'input[value*="Finish attempt"], input[value*="Selesaikan"], button[id="mod_quiz-next-nav"]'
                 );
                 if (nextBtn) {
-                    var d = randomDelay(4500, 8500);
-                    log('Next page dalam ' + d + 'ms...', 'info');
+                    var isFinish = (nextBtn.value || nextBtn.innerText || '').toLowerCase().indexOf('finish') !== -1 ||
+                                   (nextBtn.value || nextBtn.innerText || '').toLowerCase().indexOf('selesai') !== -1;
+                    var d = randomDelay(3500, 6500);
+                    log((isFinish ? 'Menuju halaman Summary' : 'Next page') + ' dalam ' + d + 'ms...', 'info');
                     sleep(d).then(function () {
-                        if (!stopFlag) {
-                            log('Pindah ke halaman berikutnya.', 'ok');
+                        if (!stopFlag && !paused) {
+                            log(isFinish ? 'Membuka halaman Summary...' : 'Pindah ke halaman berikutnya.', 'ok');
                             simulateTrustedClick(nextBtn);
+                            try { nextBtn.click(); } catch (e) {}
                         } else {
                             finish('stopped');
                         }
                     });
                     return;
                 } else {
-                    log('Tidak ada tombol Next. Semua halaman selesai.', 'ok');
+                    log('Semua halaman kuis selesai.', 'ok');
                 }
             }
 
@@ -991,66 +1180,1090 @@
 
     function finish(state) {
         running = false;
+        paused = false;
         stopFlag = false;
-        setButton(false);
+        setButton('idle');
         setStatus(state);
         log(state === 'stopped' ? 'Dihentikan oleh user.' : 'Selesai.', state === 'stopped' ? 'warn' : 'ok');
     }
 
-    // ==================== AUTO START ====================
-    function cancelCountdown() {
-        countingDown = false;
-        if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
-        setButton(false);
-        setStatus('idle');
-        log('Auto start dibatalkan.', 'warn');
+    // ==================== SUMMARY PAGE & AUTO SUBMIT ====================
+    var submitTimer = null;
+    var submitCountdown = false;
+
+    function isSummaryPage() {
+        return window.location.pathname.indexOf('/mod/quiz/summary.php') !== -1;
     }
 
-    function scheduleAutoStart() {
-        if (!cfg.autoStart) return;
-        if (document.querySelectorAll('.que').length === 0) return;
-        if (!PROVIDERS[cfg.provider].keyOptional && !cfg.apiKeys[cfg.provider]) {
-            log('Auto Start aktif tapi API Key kosong, dilewati.', 'warn');
+    function cancelSubmitCountdown() {
+        if (!submitCountdown) return;
+        submitCountdown = false;
+        if (submitTimer) { clearInterval(submitTimer); submitTimer = null; }
+        if (startBtn) {
+            startBtn.className = 'idle';
+            startBtn.textContent = 'Submit Quiz (Alt+S)';
+        }
+        setStatus('stopped');
+        log('Auto submit dibatalkan oleh user (Alt+X).', 'warn');
+    }
+
+    function submitQuizAttempt() {
+        if (submitCountdown && submitTimer) {
+            clearInterval(submitTimer);
+            submitTimer = null;
+            submitCountdown = false;
+        }
+
+        log('Memproses Submit all and finish...', 'info');
+        setStatus('running');
+        if (startBtn) {
+            startBtn.className = 'running';
+            startBtn.textContent = 'Submitting...';
+        }
+
+        // 1. Cari tombol Submit all and finish di halaman summary
+        var submitBtn = null;
+        var candidates = Array.from(document.querySelectorAll('button, input[type="submit"], input[type="button"], .submitbtns a, .submitbtns button'));
+        for (var i = 0; i < candidates.length; i++) {
+            var txt = (candidates[i].innerText || candidates[i].value || '').toLowerCase().trim();
+            if (txt.indexOf('submit all and finish') !== -1 || txt.indexOf('kirim semua dan selesai') !== -1) {
+                submitBtn = candidates[i];
+                break;
+            }
+        }
+
+        if (!submitBtn) {
+            submitBtn = document.querySelector('form[action*="processattempt.php"] button, form[action*="processattempt.php"] input[type="submit"], .submitbtns button.btn-primary');
+        }
+
+        if (!submitBtn) {
+            log('Tombol Submit all and finish tidak ditemukan di halaman!', 'error');
+            setStatus('error');
+            if (startBtn) {
+                startBtn.className = 'idle';
+                startBtn.textContent = 'Submit Quiz (Alt+S)';
+            }
             return;
         }
 
-        countingDown = true;
-        var secs = 3;
-        startBtn.className = 'running';
-        startBtn.textContent = 'Cancel (' + secs + 's)';
-        setStatus('running');
-        statusText.textContent = 'Auto start...';
-        log('Auto start dalam ' + secs + ' detik... klik Cancel untuk batal.', 'warn');
+        log('Mengklik tombol Submit all and finish...', 'ok');
+        simulateTrustedClick(submitBtn);
+        try { submitBtn.click(); } catch (e) {}
 
-        countdownTimer = setInterval(function () {
-            secs--;
-            if (secs <= 0) {
-                clearInterval(countdownTimer);
-                countdownTimer = null;
-                countingDown = false;
-                startProcessing();
+        // 2. Moodle memunculkan dialog/modal konfirmasi
+        var attempts = 0;
+        var maxAttempts = 20; // cek selama 4 detik
+        var checkModal = setInterval(function () {
+            attempts++;
+
+            var modalBtn = null;
+            var modalCandidates = document.querySelectorAll(
+                '.modal.show button, .modal.show input[type="button"], .modal.show input[type="submit"], ' +
+                '.moodle-dialogue-bd button, .moodle-dialogue-bd input[type="button"], ' +
+                'div[role="dialog"] button, [data-action="save"]'
+            );
+
+            for (var j = 0; j < modalCandidates.length; j++) {
+                var mb = modalCandidates[j];
+                var mtxt = (mb.innerText || mb.value || '').toLowerCase().trim();
+                var action = mb.getAttribute('data-action') || '';
+                if (action === 'save' || mtxt.indexOf('submit all') !== -1 || mtxt.indexOf('kirim semua') !== -1) {
+                    modalBtn = mb;
+                    break;
+                }
+            }
+
+            if (!modalBtn) {
+                var primary = document.querySelector('.modal.show .btn-primary, div[role="dialog"] .btn-primary');
+                if (primary) {
+                    var ptxt = (primary.innerText || primary.value || '').toLowerCase();
+                    if (ptxt.indexOf('cancel') === -1 && ptxt.indexOf('batal') === -1) {
+                        modalBtn = primary;
+                    }
+                }
+            }
+
+            if (modalBtn) {
+                clearInterval(checkModal);
+                log('Modal konfirmasi terdeteksi, mengonfirmasi submit final...', 'ok');
+                simulateTrustedClick(modalBtn);
+                try { modalBtn.click(); } catch (e) {}
+                setStatus('done');
+                if (startBtn) {
+                    startBtn.className = 'idle';
+                    startBtn.textContent = 'Submitted';
+                }
+                return;
+            }
+
+            if (attempts >= maxAttempts) {
+                clearInterval(checkModal);
+                // Fallback: submit form langsung bila modal tidak muncul
+                var form = document.querySelector('form[action*="processattempt.php"]');
+                if (form) {
+                    log('Modal tidak terdeteksi, mengirim form attempt secara langsung...', 'warn');
+                    form.submit();
+                } else {
+                    log('Selesai memicu submit.', 'ok');
+                }
+                setStatus('done');
+                if (startBtn) {
+                    startBtn.className = 'idle';
+                    startBtn.textContent = 'Submitted';
+                }
+            }
+        }, 200);
+    }
+
+    function isSummaryPage() {
+        return window.location.pathname.indexOf('/mod/quiz/summary.php') !== -1;
+    }
+
+    function isQuizViewPage() {
+        return window.location.pathname.indexOf('/mod/quiz/view.php') !== -1;
+    }
+
+    function isCourseViewPage() {
+        return window.location.pathname.indexOf('/course/view.php') !== -1;
+    }
+
+    function isMyCoursesPage() {
+        return window.location.pathname.indexOf('/my/courses.php') !== -1 || window.location.pathname.indexOf('/my/') !== -1;
+    }
+
+    // ==================== DUE DATE PARSER & FORMATTER ====================
+    function parseDueDateText(text) {
+        if (!text) return null;
+        var months = {
+            'januari': 0, 'jan': 0, 'january': 0,
+            'februari': 1, 'feb': 1, 'february': 1,
+            'maret': 2, 'mar': 2, 'march': 2,
+            'april': 3, 'apr': 3,
+            'mei': 4, 'may': 4,
+            'juni': 5, 'jun': 5, 'june': 5,
+            'juli': 6, 'jul': 6, 'july': 6,
+            'agustus': 7, 'ags': 7, 'aug': 7, 'august': 7,
+            'september': 8, 'sep': 8,
+            'oktober': 9, 'okt': 9, 'oct': 9, 'october': 9,
+            'november': 10, 'nov': 10,
+            'desember': 11, 'des': 11, 'dec': 11, 'december': 11
+        };
+
+        var m = text.match(/(\d{1,2})\s+([a-zA-Z]+)(?:\s+(\d{4}))?[,\s]+(?:pukul\s+)?(\d{1,2})[:.](\d{2})(?:\s*([ap]\.?m\.?))?/i);
+        if (m) {
+            var day = parseInt(m[1], 10);
+            var mName = m[2].toLowerCase();
+            var year = m[3] ? parseInt(m[3], 10) : new Date().getFullYear();
+            var hour = parseInt(m[4], 10);
+            var min = parseInt(m[5], 10);
+            var ampm = m[6] ? m[6].toLowerCase().replace(/\./g, '') : null;
+            if (months.hasOwnProperty(mName)) {
+                if (ampm === 'pm' && hour < 12) hour += 12;
+                if (ampm === 'am' && hour === 12) hour = 0;
+                var d = new Date(year, months[mName], day, hour, min, 0);
+                if (!isNaN(d.getTime())) return d;
+            }
+        }
+
+        var m2 = text.match(/([a-zA-Z]+)\s+(\d{1,2})(?:st|nd|rd|th)?[,\s]+(?:(\d{4})[,\s]+)?(?:at\s+)?(\d{1,2})[:.](\d{2})(?:\s*([ap]\.?m\.?))?/i);
+        if (m2) {
+            var mName2 = m2[1].toLowerCase();
+            var day2 = parseInt(m2[2], 10);
+            var year2 = m2[3] ? parseInt(m2[3], 10) : new Date().getFullYear();
+            var hour2 = parseInt(m2[4], 10);
+            var min2 = parseInt(m2[5], 10);
+            var ampm2 = m2[6] ? m2[6].toLowerCase().replace(/\./g, '') : null;
+            if (months.hasOwnProperty(mName2)) {
+                if (ampm2 === 'pm' && hour2 < 12) hour2 += 12;
+                if (ampm2 === 'am' && hour2 === 12) hour2 = 0;
+                var d2 = new Date(year2, months[mName2], day2, hour2, min2, 0);
+                if (!isNaN(d2.getTime())) return d2;
+            }
+        }
+
+        var parsed = Date.parse(text);
+        if (!isNaN(parsed)) return new Date(parsed);
+        return null;
+    }
+
+    function formatRemainingTime(ms) {
+        if (ms < 0) return 'Sudah lewat deadline';
+        var totalMinutes = Math.floor(ms / (1000 * 60));
+        var totalHours = Math.floor(totalMinutes / 60);
+        var days = Math.floor(totalHours / 24);
+        var hours = totalHours % 24;
+        var minutes = totalMinutes % 60;
+        if (days > 0) {
+            return days + ' hari ' + (hours > 0 ? hours + ' jam lagi' : 'lagi');
+        }
+        if (hours > 0) {
+            return hours + ' jam ' + (minutes > 0 ? minutes + ' mnt lagi' : 'lagi');
+        }
+        return totalMinutes + ' menit lagi';
+    }
+
+    function extractQuizDueDate() {
+        var candidates = Array.from(document.querySelectorAll('.quizinfo, .box.py-3, [data-region="activity-dates"], #region-main, div[role="main"]'));
+        for (var i = 0; i < candidates.length; i++) {
+            var lines = (candidates[i].innerText || '').split('\n');
+            for (var j = 0; j < lines.length; j++) {
+                var line = lines[j].trim();
+                var lower = line.toLowerCase();
+                if (lower.indexOf('close') !== -1 || lower.indexOf('ditutup') !== -1 ||
+                    lower.indexOf('due') !== -1 || lower.indexOf('batas waktu') !== -1 ||
+                    lower.indexOf('jatuh tempo') !== -1) {
+                    var d = parseDueDateText(line);
+                    if (d) {
+                        var diffMs = d.getTime() - Date.now();
+                        var remainingHours = diffMs / (1000 * 60 * 60);
+                        var threshold = typeof cfg.urgentThresholdHours === 'number' ? cfg.urgentThresholdHours : 24;
+                        var isUrgent = remainingHours <= threshold;
+                        return {
+                            date: d,
+                            rawText: line,
+                            remainingHours: remainingHours,
+                            remainingText: formatRemainingTime(diffMs),
+                            isUrgent: isUrgent
+                        };
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    function findStartAttemptButton() {
+        var selectors = [
+            'form[action*="startattempt.php"] button[type="submit"]',
+            'form[action*="startattempt.php"] input[type="submit"]',
+            '.quizattempt button',
+            '.quizattempt input[type="submit"]',
+            '#quizstartbuttondiv button',
+            '#quizstartbuttondiv input[type="submit"]',
+            '.singlebutton form button[type="submit"]',
+            'a.btn-primary[href*="startattempt.php"]',
+            'a.btn-primary[href*="attempt.php"]'
+        ];
+        for (var i = 0; i < selectors.length; i++) {
+            var el = document.querySelector(selectors[i]);
+            if (el) return el;
+        }
+        var buttons = Array.from(document.querySelectorAll('button, input[type="submit"], a.btn'));
+        for (var j = 0; j < buttons.length; j++) {
+            var txt = (buttons[j].innerText || buttons[j].value || '').toLowerCase();
+            if (txt.indexOf('attempt quiz') !== -1 || txt.indexOf('kerjakan kuis') !== -1 ||
+                txt.indexOf('continue the last attempt') !== -1 || txt.indexOf('lanjutkan pengerjaan') !== -1 ||
+                txt.indexOf('re-attempt') !== -1 || txt.indexOf('kerjakan ulang') !== -1 ||
+                txt.indexOf('preview quiz') !== -1 || txt.indexOf('lihat pratinjau') !== -1) {
+                return buttons[j];
+            }
+        }
+        return null;
+    }
+
+    function confirmStartModal() {
+        return new Promise(function (resolve) {
+            var attempts = 0;
+            var maxAttempts = 20;
+            var interval = setInterval(function () {
+                attempts++;
+                var modalCandidates = document.querySelectorAll(
+                    '#confirmstartmodal button, #confirmstartmodal input[type="submit"], ' +
+                    '.modal.show button, .modal.show input[type="submit"], ' +
+                    'div[role="dialog"] button, div[role="dialog"] input[type="submit"], ' +
+                    '[data-action="save"]'
+                );
+                for (var i = 0; i < modalCandidates.length; i++) {
+                    var btn = modalCandidates[i];
+                    var txt = (btn.innerText || btn.value || '').toLowerCase();
+                    var action = btn.getAttribute('data-action') || '';
+                    if (action === 'save' || txt.indexOf('start attempt') !== -1 || txt.indexOf('mulai pengerjaan') !== -1 || txt.indexOf('start') !== -1 || txt.indexOf('mulai') !== -1) {
+                        clearInterval(interval);
+                        log('Modal konfirmasi terdeteksi, mengonfirmasi mulai kuis...', 'ok');
+                        simulateTrustedClick(btn);
+                        try { btn.click(); } catch (e) {}
+                        resolve(true);
+                        return;
+                    }
+                }
+                if (attempts >= maxAttempts) {
+                    clearInterval(interval);
+                    resolve(false);
+                }
+            }, 200);
+        });
+    }
+
+    function executeStartQuiz() {
+        var startBtnEl = findStartAttemptButton();
+        if (!startBtnEl) {
+            log('Tombol mulai kuis tidak ditemukan!', 'error');
+            return;
+        }
+        log('Mengklik tombol mulai kuis...', 'ok');
+        setStatus('running');
+        if (startBtn) {
+            startBtn.className = 'running';
+            startBtn.textContent = 'Starting...';
+        }
+        simulateTrustedClick(startBtnEl);
+        try { startBtnEl.click(); } catch (e) {}
+        confirmStartModal();
+    }
+
+    function showPromptBox(title, message, onYes, onNo) {
+        var container = document.getElementById('qbot-prompt-box-area');
+        if (!container) return;
+        var cleanTitle = title.replace(/^⚠️\s*/, '');
+        container.innerHTML =
+            '<div class="qbot-prompt-box">' +
+                '<div class="qbot-prompt-title">' +
+                    '<span style="font-size:13px">⚠️</span>' +
+                    '<span>' + cleanTitle + '</span>' +
+                '</div>' +
+                '<div class="qbot-prompt-msg">' + message + '</div>' +
+                '<div class="qbot-prompt-btns">' +
+                    '<button class="qbot-btn-yes" id="qbot-btn-prompt-yes">Ya, Kerjakan Sekarang</button>' +
+                    '<button class="qbot-btn-no" id="qbot-btn-prompt-no">Nanti Saja</button>' +
+                '</div>' +
+            '</div>';
+        document.getElementById('qbot-btn-prompt-yes').addEventListener('click', function () {
+            container.innerHTML = '';
+            if (typeof onYes === 'function') onYes();
+        });
+        document.getElementById('qbot-btn-prompt-no').addEventListener('click', function () {
+            container.innerHTML = '';
+            if (typeof onNo === 'function') onNo();
+        });
+    }
+
+    function clearPromptBox() {
+        var container = document.getElementById('qbot-prompt-box-area');
+        if (container) container.innerHTML = '';
+    }
+
+    // ==================== QUIZ VIEW PAGE HANDLER ====================
+    var viewCountdownTimer = null;
+    function cancelViewCountdown() {
+        if (viewCountdownTimer) {
+            clearInterval(viewCountdownTimer);
+            viewCountdownTimer = null;
+            if (startBtn) {
+                startBtn.className = 'idle';
+                startBtn.textContent = isMyCoursesPage() ? 'Pindai Ulang' : isQuizViewPage() ? 'Mulai Kuis (Alt+S)' : 'Start (Alt+S)';
+            }
+            setStatus('stopped');
+            log('Pengerjaan otomatis kuis dibatalkan oleh user.', 'warn');
+        }
+    }
+
+    var quizViewRetryCount = 0;
+    function handleQuizViewPage() {
+        if (!isQuizViewPage()) return;
+
+        var titleEl = document.querySelector('.page-header-headings h1, #region-main h2, h2.main, .breadcrumb-item:last-child');
+        var quizTitle = titleEl ? titleEl.textContent.trim() : document.title.replace(/\|.*/, '').trim();
+
+        var dueInfo = extractQuizDueDate();
+        var startBtnEl = findStartAttemptButton();
+
+        if (startBtn) {
+            startBtn.className = 'idle';
+            startBtn.textContent = 'Mulai Kuis (Alt+S)';
+        }
+
+        if (!startBtnEl) {
+            if (quizViewRetryCount < 4) {
+                quizViewRetryCount++;
+                setTimeout(handleQuizViewPage, 600);
+                return;
+            }
+            log('Kuis terdeteksi: "' + quizTitle + '". Kuis ini sudah selesai atau tidak ada attempt yang dapat dimulai.', 'info');
+            setStatus('done');
+            return;
+        }
+        quizViewRetryCount = 0;
+
+        var pwInput = document.querySelector('#id_quizpassword, input[name="quizpassword"]');
+        if (pwInput && !pwInput.value.trim()) {
+            log('⚠️ Kuis "' + quizTitle + '" memerlukan password. Silakan isi password pada formulir terlebih dahulu.', 'warn');
+            setStatus('idle');
+            return;
+        }
+
+        if (cfg.autoQuiz) {
+            if (dueInfo && !dueInfo.isUrgent) {
+                log('🟡 [Auto Pilot] Kuis "' + quizTitle + '" terdeteksi. Batas waktu masih lama (' + dueInfo.remainingText + '). Menunggu konfirmasi...', 'info');
+                showPromptBox(
+                    '⚠️ Konfirmasi Pengerjaan (Auto Pilot)',
+                    'Kuis <b>' + quizTitle + '</b> batas waktunya masih <b>' + dueInfo.remainingText + '</b> (' + (dueInfo.date ? dueInfo.date.toLocaleString('id-ID') : '') + ').<br>Apakah ingin dikerjakan sekarang?',
+                    function () {
+                        log('User memilih untuk mengerjakan sekarang.', 'ok');
+                        executeStartQuiz();
+                    },
+                    function () {
+                        log('User memilih nanti saja. Kuis dilewati.', 'info');
+                        setStatus('idle');
+                    }
+                );
             } else {
+                var reason = dueInfo ? 'Batas waktu: ' + dueInfo.remainingText : 'Siap dikerjakan';
+                log('🔴 [Auto Pilot] Kuis MENDESAK: "' + quizTitle + '" (' + reason + ')! Memulai pengerjaan otomatis dalam 3 detik...', 'warn');
+                var secs = 3;
+                if (startBtn) {
+                    startBtn.className = 'running';
+                    startBtn.textContent = 'Batal (' + secs + 's)';
+                }
+                setStatus('running');
+
+                viewCountdownTimer = setInterval(function () {
+                    secs--;
+                    if (secs <= 0) {
+                        clearInterval(viewCountdownTimer);
+                        viewCountdownTimer = null;
+                        executeStartQuiz();
+                    } else {
+                        if (startBtn) startBtn.textContent = 'Batal (' + secs + 's)';
+                    }
+                }, 1000);
+            }
+        } else {
+            var dueStr = dueInfo ? ' (Deadline: ' + dueInfo.remainingText + ')' : '';
+            log('Kuis terdeteksi: "' + quizTitle + '"' + dueStr + '. Tekan Alt+S atau klik "Mulai Kuis" untuk mulai.', 'info');
+            setStatus('idle');
+        }
+    }
+
+    // ==================== COURSE VIEW PAGE HANDLER ====================
+    function handleCourseViewPage() {
+        if (!isCourseViewPage()) return;
+
+        var quizElements = Array.from(document.querySelectorAll('li.activity.quiz, div.activity-item[data-activityname], a[href*="/mod/quiz/view.php"]'));
+        var foundQuizzes = [];
+        var seenUrls = {};
+
+        for (var i = 0; i < quizElements.length; i++) {
+            var el = quizElements[i];
+            var link = el.tagName === 'A' ? el : el.querySelector('a[href*="/mod/quiz/view.php"]');
+            if (!link) continue;
+            var href = link.href;
+            if (seenUrls[href]) continue;
+            seenUrls[href] = true;
+
+            var title = (link.querySelector('.instancename') || link).textContent.replace(/\s+/g, ' ').trim();
+            var isDone = false;
+            var parentItem = link.closest('.activity, .activity-item') || el;
+            if (parentItem) {
+                var compTxt = (parentItem.innerText || '').toLowerCase();
+                if (compTxt.indexOf('done') !== -1 || compTxt.indexOf('selesai') !== -1 || compTxt.indexOf('completed') !== -1 ||
+                    parentItem.querySelector('.completion-info .badge-success, [data-action="toggle-manual-completion"][data-value="1"]')) {
+                    isDone = true;
+                }
+            }
+
+            var dueInfo = null;
+            if (parentItem) {
+                var datesEl = parentItem.querySelector('.activity-dates, .text-muted, .activity-information');
+                if (datesEl) {
+                    var d = parseDueDateText(datesEl.innerText || '');
+                    if (d) {
+                        var diffMs = d.getTime() - Date.now();
+                        var remainingHours = diffMs / (1000 * 60 * 60);
+                        var threshold = typeof cfg.urgentThresholdHours === 'number' ? cfg.urgentThresholdHours : 24;
+                        dueInfo = {
+                            date: d,
+                            remainingHours: remainingHours,
+                            remainingText: formatRemainingTime(diffMs),
+                            isUrgent: remainingHours <= threshold
+                        };
+                    }
+                }
+            }
+
+            foundQuizzes.push({
+                title: title,
+                href: href,
+                isDone: isDone,
+                dueInfo: dueInfo
+            });
+        }
+
+        if (foundQuizzes.length === 0) {
+            if (courseViewRetryCount < 4) {
+                courseViewRetryCount++;
+                setTimeout(handleCourseViewPage, 800);
+            }
+            return;
+        }
+        courseViewRetryCount = 0;
+
+        foundQuizzes.sort(function (a, b) {
+            if (a.isDone !== b.isDone) return a.isDone ? 1 : -1;
+            var aH = a.dueInfo ? a.dueInfo.remainingHours : 999999;
+            var bH = b.dueInfo ? b.dueInfo.remainingHours : 999999;
+            return aH - bH;
+        });
+
+        log('[Auto Detect] Terdeteksi ' + foundQuizzes.length + ' kuis di mata kuliah ini (diurutkan prioritas deadline).', 'ok');
+
+        var container = document.getElementById('qbot-prompt-box-area');
+        if (container) {
+            var html =
+                '<div class="qbot-dashboard-box">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+                        '<span style="font-weight:700;font-size:12px;color:#93c5fd;display:flex;align-items:center;gap:4px">📚 Kuis di Mata Kuliah Ini</span>' +
+                        '<span style="font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px">' + foundQuizzes.length + ' Kuis</span>' +
+                    '</div>' +
+                    '<div style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;padding-right:2px">';
+            for (var k = 0; k < foundQuizzes.length; k++) {
+                var q = foundQuizzes[k];
+                var badgeClass = q.isDone ? 'qbot-badge-done' : (q.dueInfo && q.dueInfo.isUrgent ? 'qbot-badge-urgent' : 'qbot-badge-normal');
+                var badgeText = q.isDone ? 'Selesai' : (q.dueInfo ? q.dueInfo.remainingText : 'Tersedia');
+
+                html +=
+                    '<div class="qbot-quiz-item">' +
+                        '<div class="qbot-quiz-item-head">' +
+                            '<span class="qbot-quiz-item-title">' + q.title + '</span>' +
+                            '<span class="qbot-badge ' + badgeClass + '">' + badgeText + '</span>' +
+                        '</div>' +
+                        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">' +
+                            '<span class="qbot-quiz-item-due">' + (q.dueInfo ? 'Batas: ' + q.dueInfo.date.toLocaleDateString('id-ID') : 'Tanpa deadline') + '</span>' +
+                            '<a class="qbot-quiz-item-btn" href="' + q.href + '">Buka Kuis &rarr;</a>' +
+                        '</div>' +
+                    '</div>';
+            }
+            html += '</div></div>';
+            container.innerHTML = html;
+        }
+
+        if (cfg.autoQuiz) {
+            var urgentQuizzes = foundQuizzes.filter(function (q) { return !q.isDone && q.dueInfo && q.dueInfo.isUrgent; });
+            var mostUrgent = urgentQuizzes[0];
+            if (mostUrgent) {
+                log('🔴 [Auto Pilot] Kuis MENDESAK: "' + mostUrgent.title + '" (' + mostUrgent.dueInfo.remainingText + ')! Membuka kuis dalam 3 detik...', 'warn');
+                var secs = 3;
+                if (startBtn) {
+                    startBtn.className = 'running';
+                    startBtn.textContent = 'Batal (' + secs + 's)';
+                }
+                setStatus('running');
+
+                viewCountdownTimer = setInterval(function () {
+                    secs--;
+                    if (secs <= 0) {
+                        clearInterval(viewCountdownTimer);
+                        viewCountdownTimer = null;
+                        log('Membuka kuis "' + mostUrgent.title + '"...', 'ok');
+                        window.location.href = mostUrgent.href;
+                    } else {
+                        if (startBtn) startBtn.textContent = 'Batal (' + secs + 's)';
+                    }
+                }, 1000);
+            } else {
+                var upcoming = foundQuizzes.filter(function (q) { return !q.isDone; })[0];
+                if (upcoming) {
+                    var dueStr = upcoming.dueInfo ? upcoming.dueInfo.remainingText : 'tanpa batas waktu ketat';
+                    log('🟡 [Auto Pilot] Kuis "' + upcoming.title + '" belum jatuh tempo (' + dueStr + '). Menunggu konfirmasi...', 'info');
+                    showPromptBox(
+                        '⚠️ Konfirmasi Pengerjaan (Auto Pilot)',
+                        'Kuis <b>' + upcoming.title + '</b> belum jatuh tempo (<b>' + dueStr + '</b>).<br>Apakah ingin dikerjakan sekarang?',
+                        function () {
+                            log('Membuka kuis "' + upcoming.title + '"...', 'ok');
+                            window.location.href = upcoming.href;
+                        },
+                        function () {
+                            log('User memilih nanti saja.', 'info');
+                            setStatus('idle');
+                        }
+                    );
+                }
+            }
+        }
+    }
+
+    // ==================== MY COURSES DASHBOARD HANDLER (/my/courses.php) ====================
+    var isScanningMyCourses = false;
+    var hasAutoScannedMyCourses = false;
+    var myCoursesObserver = null;
+    var myCoursesRetryTimer = null;
+    var courseViewRetryCount = 0;
+
+    function getEnrolledCoursesFromPage() {
+        var links = Array.from(document.querySelectorAll('a[href*="/course/view.php?id="]'));
+        var coursesMap = {};
+        var courses = [];
+
+        for (var i = 0; i < links.length; i++) {
+            var a = links[i];
+            var href = a.href;
+            var m = href.match(/\/course\/view\.php\?id=(\d+)/);
+            if (!m) continue;
+            var id = m[1];
+            if (id === '1') continue;
+
+            var name = '';
+            var parentCard = a.closest ? a.closest('.dashboard-card, .course-info-container, .course-listitem, [data-course-id]') : null;
+            if (parentCard) {
+                var titleNode = parentCard.querySelector('.coursename, .course-title, h5, h6, .multiline');
+                if (titleNode) {
+                    name = (titleNode.innerText || '').trim();
+                }
+            }
+            if (!name) {
+                var nameEl = a.querySelector('.coursename, .multiline, .text-truncate') || a;
+                name = (nameEl.innerText || a.innerText || '').trim();
+            }
+            name = name.replace(/\s+/g, ' ').replace(/^(Course|Mata kuliah)\s*:\s*/i, '').trim();
+
+            if (coursesMap[id]) {
+                var existing = coursesMap[id];
+                if ((!existing.name || existing.name.indexOf('Mata Kuliah #') === 0) && name && name.indexOf('Mata Kuliah #') !== 0) {
+                    existing.name = name;
+                }
+            } else {
+                if (!name || name.length < 2 || name.toLowerCase() === 'home' || name.toLowerCase() === 'beranda') {
+                    name = 'Mata Kuliah #' + id;
+                }
+                var cObj = { id: id, name: name, url: href };
+                coursesMap[id] = cObj;
+                courses.push(cObj);
+            }
+        }
+        return courses;
+    }
+
+    function renderMyCoursesQuizzes(allQuizzes, totalCourses) {
+        if (allQuizzes.length === 0) {
+            log('Pemindaian selesai dari ' + totalCourses + ' mata kuliah: Tidak ada kuis aktif ditemukan.', 'ok');
+            return;
+        }
+
+        allQuizzes.sort(function (a, b) {
+            if (a.isDone !== b.isDone) return a.isDone ? 1 : -1;
+            var aH = a.dueInfo ? a.dueInfo.remainingHours : 999999;
+            var bH = b.dueInfo ? b.dueInfo.remainingHours : 999999;
+            return aH - bH;
+        });
+
+        var urgentCount = allQuizzes.filter(function (q) { return !q.isDone && q.dueInfo && q.dueInfo.isUrgent; }).length;
+        log('Pemindaian selesai! Ditemukan ' + allQuizzes.length + ' kuis (' + urgentCount + ' mendesak) dari ' + totalCourses + ' mata kuliah.', urgentCount > 0 ? 'warn' : 'ok');
+
+        var container = document.getElementById('qbot-prompt-box-area');
+        if (container) {
+            var html =
+                '<div class="qbot-dashboard-box">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+                        '<span style="font-weight:700;font-size:12px;color:#93c5fd;display:flex;align-items:gap:4px">📋 Dashboard Kuis (' + allQuizzes.length + ')</span>' +
+                        '<span style="font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px">' + totalCourses + ' Matkul</span>' +
+                    '</div>' +
+                    '<div style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto;padding-right:2px">';
+
+            for (var j = 0; j < allQuizzes.length; j++) {
+                var q = allQuizzes[j];
+                var badgeClass = q.isDone ? 'qbot-badge-done' : (q.dueInfo && q.dueInfo.isUrgent ? 'qbot-badge-urgent' : 'qbot-badge-normal');
+                var badgeText = q.isDone ? 'Selesai' : (q.dueInfo ? q.dueInfo.remainingText : 'Tersedia');
+
+                html +=
+                    '<div class="qbot-quiz-item">' +
+                        '<div class="qbot-quiz-item-head">' +
+                            '<span class="qbot-quiz-item-title">' + q.title + '</span>' +
+                            '<span class="qbot-badge ' + badgeClass + '">' + badgeText + '</span>' +
+                        '</div>' +
+                        '<div style="font-size:10px;color:#60a5fa;margin-top:2px">📚 ' + q.courseName + '</div>' +
+                        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">' +
+                            '<span class="qbot-quiz-item-due">' + (q.dueInfo ? 'Batas: ' + q.dueInfo.date.toLocaleDateString('id-ID') : 'Tanpa deadline') + '</span>' +
+                            '<a class="qbot-quiz-item-btn" href="' + q.href + '">Buka Kuis &rarr;</a>' +
+                        '</div>' +
+                    '</div>';
+            }
+            html += '</div></div>';
+            container.innerHTML = html;
+        }
+
+        if (cfg.autoQuiz) {
+            var urgentQuizzes = allQuizzes.filter(function (q) { return !q.isDone && q.dueInfo && q.dueInfo.isUrgent; });
+            var mostUrgent = urgentQuizzes[0];
+            if (mostUrgent) {
+                log('🔴 [Auto Pilot] Kuis MENDESAK: "' + mostUrgent.title + '" di "' + mostUrgent.courseName + '" (' + mostUrgent.dueInfo.remainingText + ')! Membuka otomatis dalam 3 detik...', 'warn');
+                var secs = 3;
+                if (startBtn) {
+                    startBtn.className = 'running';
+                    startBtn.textContent = 'Batal (' + secs + 's)';
+                }
+                setStatus('running');
+
+                viewCountdownTimer = setInterval(function () {
+                    secs--;
+                    if (secs <= 0) {
+                        clearInterval(viewCountdownTimer);
+                        viewCountdownTimer = null;
+                        log('Membuka kuis mendesak "' + mostUrgent.title + '"...', 'ok');
+                        window.location.href = mostUrgent.href;
+                    } else {
+                        if (startBtn) startBtn.textContent = 'Batal (' + secs + 's)';
+                    }
+                }, 1000);
+            } else {
+                var upcoming = allQuizzes.filter(function (q) { return !q.isDone; })[0];
+                if (upcoming) {
+                    var dueStr = upcoming.dueInfo ? upcoming.dueInfo.remainingText : 'tanpa batas waktu ketat';
+                    log('🟡 [Auto Pilot] Kuis "' + upcoming.title + '" di "' + upcoming.courseName + '" belum jatuh tempo (' + dueStr + '). Menunggu konfirmasi...', 'info');
+                    showPromptBox(
+                        '⚠️ Konfirmasi Pengerjaan (Auto Pilot)',
+                        'Kuis <b>' + upcoming.title + '</b> pada mata kuliah <b>' + upcoming.courseName + '</b> belum jatuh tempo (<b>' + dueStr + '</b>).<br>Apakah ingin dikerjakan sekarang?',
+                        function () {
+                            log('Membuka kuis "' + upcoming.title + '"...', 'ok');
+                            window.location.href = upcoming.href;
+                        },
+                        function () {
+                            log('User memilih nanti saja.', 'info');
+                            setStatus('idle');
+                        }
+                    );
+                }
+            }
+        }
+    }
+
+    function scanAllMyCourses() {
+        if (isScanningMyCourses) return;
+        isScanningMyCourses = true;
+
+        var courses = getEnrolledCoursesFromPage();
+        if (courses.length === 0) {
+            log('Tidak ada daftar mata kuliah yang terdeteksi di halaman ini. Pastikan daftar mata kuliah sudah tampil.', 'warn');
+            isScanningMyCourses = false;
+            return;
+        }
+
+        log('🔍 [Auto Detect] Memulai pemindaian ' + courses.length + ' mata kuliah untuk mencari kuis...', 'info');
+        setStatus('running');
+        if (startBtn) {
+            startBtn.className = 'running';
+            startBtn.textContent = 'Memindai...';
+        }
+
+        var allQuizzes = [];
+        var idx = 0;
+
+        function scanNextCourse() {
+            if (idx >= courses.length) {
+                isScanningMyCourses = false;
+                hasAutoScannedMyCourses = true;
+                setStatus('idle');
+                if (startBtn) {
+                    startBtn.className = 'idle';
+                    startBtn.textContent = 'Pindai Ulang';
+                }
+                renderMyCoursesQuizzes(allQuizzes, courses.length);
+                return;
+            }
+
+            var c = courses[idx];
+            idx++;
+            log('[' + idx + '/' + courses.length + '] Memeriksa "' + c.name + '"...', 'info');
+
+            fetch(c.url, { credentials: 'same-origin' })
+                .then(function (res) {
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    return res.text();
+                })
+                .then(function (html) {
+                    var doc = new DOMParser().parseFromString(html, 'text/html');
+                    var quizElements = Array.from(doc.querySelectorAll('li.activity.quiz, div.activity-item[data-activityname], a[href*="/mod/quiz/view.php"]'));
+                    var seenHref = {};
+
+                    for (var k = 0; k < quizElements.length; k++) {
+                        var el = quizElements[k];
+                        var link = el.tagName === 'A' ? el : el.querySelector('a[href*="/mod/quiz/view.php"]');
+                        if (!link) continue;
+                        var href = link.href;
+                        if (seenHref[href]) continue;
+                        seenHref[href] = true;
+
+                        var title = (link.querySelector('.instancename') || link).textContent.replace(/\s+/g, ' ').trim();
+                        var isDone = false;
+                        var parentItem = link.closest('.activity, .activity-item') || el;
+                        if (parentItem) {
+                            var compTxt = (parentItem.innerText || '').toLowerCase();
+                            if (compTxt.indexOf('done') !== -1 || compTxt.indexOf('selesai') !== -1 || compTxt.indexOf('completed') !== -1 ||
+                                parentItem.querySelector('.completion-info .badge-success, [data-action="toggle-manual-completion"][data-value="1"]')) {
+                                isDone = true;
+                            }
+                        }
+
+                        var dueInfo = null;
+                        if (parentItem) {
+                            var datesEl = parentItem.querySelector('.activity-dates, .text-muted, .activity-information');
+                            if (datesEl) {
+                                var d = parseDueDateText(datesEl.innerText || '');
+                                if (d) {
+                                    var diffMs = d.getTime() - Date.now();
+                                    var remainingHours = diffMs / (1000 * 60 * 60);
+                                    var threshold = typeof cfg.urgentThresholdHours === 'number' ? cfg.urgentThresholdHours : 24;
+                                    dueInfo = {
+                                        date: d,
+                                        remainingHours: remainingHours,
+                                        remainingText: formatRemainingTime(diffMs),
+                                        isUrgent: remainingHours <= threshold
+                                    };
+                                }
+                            }
+                        }
+
+                        allQuizzes.push({
+                            courseId: c.id,
+                            courseName: c.name,
+                            title: title,
+                            href: href,
+                            isDone: isDone,
+                            dueInfo: dueInfo
+                        });
+                    }
+                })
+                .catch(function (err) {
+                    log('Gagal memeriksa "' + c.name + '": ' + err.message, 'warn');
+                })
+                .then(function () {
+                    setTimeout(scanNextCourse, 250);
+                });
+        }
+
+        scanNextCourse();
+    }
+
+    function startAutoDetectMyCourses() {
+        if (isScanningMyCourses || hasAutoScannedMyCourses) return;
+
+        var initialCourses = getEnrolledCoursesFromPage();
+        if (initialCourses.length > 0) {
+            log('[Auto Detect] Ditemukan ' + initialCourses.length + ' mata kuliah. Memulai pemindaian kuis...', 'ok');
+            setTimeout(function () {
+                scanAllMyCourses();
+            }, 600);
+            return;
+        }
+
+        log('⏳ [Auto Detect] Menunggu daftar mata kuliah dimuat oleh Moodle...', 'info');
+
+        var attempts = 0;
+        var maxAttempts = 30; // 30 x 500ms = 15 detik
+
+        function cleanup() {
+            if (myCoursesRetryTimer) {
+                clearInterval(myCoursesRetryTimer);
+                myCoursesRetryTimer = null;
+            }
+            if (myCoursesObserver) {
+                myCoursesObserver.disconnect();
+                myCoursesObserver = null;
+            }
+        }
+
+        function tryDetect() {
+            attempts++;
+            var courses = getEnrolledCoursesFromPage();
+            if (courses.length > 0) {
+                cleanup();
+                log('[Auto Detect] Daftar mata kuliah siap (' + courses.length + ' matkul). Memulai pemindaian kuis otomatis...', 'ok');
+                setTimeout(function () {
+                    scanAllMyCourses();
+                }, 600);
+                return true;
+            }
+            if (attempts >= maxAttempts) {
+                cleanup();
+                log('Daftar mata kuliah belum tampil setelah 15 detik. Klik "Pindai Kuis Matkul" bila halaman telah selesai dimuat.', 'warn');
+                return false;
+            }
+            return false;
+        }
+
+        if (typeof MutationObserver !== 'undefined') {
+            var targetNode = document.querySelector('[data-region="courses-view"], #region-main, main, body') || document.body;
+            myCoursesObserver = new MutationObserver(function () {
+                tryDetect();
+            });
+            myCoursesObserver.observe(targetNode, { childList: true, subtree: true });
+        }
+
+        myCoursesRetryTimer = setInterval(function () {
+            tryDetect();
+        }, 500);
+    }
+
+    function handleMyCoursesPage() {
+        if (!isMyCoursesPage()) return;
+
+        log('Halaman My Courses terdeteksi.', 'info');
+        if (startBtn) {
+            startBtn.className = 'idle';
+            startBtn.textContent = 'Pindai Kuis Matkul';
+        }
+        setStatus('idle');
+
+        startAutoDetectMyCourses();
+    }
+
+    // ==================== SUMMARY PAGE & AUTO SUBMIT ====================
+    function handleSummaryPage() {
+        if (!isSummaryPage()) return;
+
+        log('Halaman Summary of attempt terdeteksi.', 'info');
+        if (startBtn) {
+            startBtn.className = 'idle';
+            startBtn.textContent = 'Submit Quiz (Alt+S)';
+        }
+        setStatus('idle');
+
+        if (cfg.autoSubmit || cfg.autoQuiz) {
+            var secs = 3;
+            submitCountdown = true;
+            if (startBtn) {
+                startBtn.className = 'running';
                 startBtn.textContent = 'Cancel (' + secs + 's)';
             }
-        }, 1000);
+            setStatus('running');
+            log((cfg.autoQuiz ? '[Auto Pilot] ' : '') + 'Auto Submit aktif! Mengirim ujian dalam ' + secs + ' detik... (Tekan Alt+X untuk batal)', 'warn');
+
+            submitTimer = setInterval(function () {
+                secs--;
+                if (secs <= 0) {
+                    clearInterval(submitTimer);
+                    submitTimer = null;
+                    submitCountdown = false;
+                    submitQuizAttempt();
+                } else {
+                    if (startBtn) startBtn.textContent = 'Cancel (' + secs + 's)';
+                }
+            }, 1000);
+        } else {
+            log('Auto Submit nonaktif. Tekan Alt+S atau klik tombol di atas untuk submit.', 'info');
+        }
+    }
+
+    // ==================== KEYBOARD SHORTCUTS ENGINE ====================
+    window.addEventListener('keydown', function (e) {
+        // Alt + A -> Toggle Auto Pilot
+        if (e.altKey && (e.code === 'KeyA' || e.key === 'a' || e.key === 'A')) {
+            e.preventDefault();
+            cfg.autoQuiz = !cfg.autoQuiz;
+            saveConfig(cfg);
+            var cb = document.getElementById('qbot-autoquiz');
+            if (cb) cb.checked = cfg.autoQuiz;
+            log(cfg.autoQuiz ? '[Auto Pilot] AKTIF — Deteksi kuis & utamakan jatuh tempo.' : '[Auto Pilot] NONAKTIF.', 'ok');
+            clearPromptBox();
+            evaluateCurrentPage();
+        }
+        // Alt + S -> Start / Resume / Submit
+        else if (e.altKey && (e.code === 'KeyS' || e.key === 's' || e.key === 'S')) {
+            e.preventDefault();
+            if (isSummaryPage()) {
+                log('[Shortcut Alt+S] Submit triggered', 'ok');
+                submitQuizAttempt();
+                return;
+            }
+            if (isQuizViewPage()) {
+                log('[Shortcut Alt+S] Start attempt triggered', 'ok');
+                clearPromptBox();
+                executeStartQuiz();
+                return;
+            }
+            if (isMyCoursesPage()) {
+                log('[Shortcut Alt+S] Scan My Courses triggered', 'ok');
+                scanAllMyCourses();
+                return;
+            }
+            if (paused) {
+                log('[Shortcut Alt+S] Resume triggered', 'ok');
+                resumeProcessing();
+            } else if (!running) {
+                log('[Shortcut Alt+S] Start triggered', 'ok');
+                startProcessing();
+            }
+        }
+        // Alt + P -> Pause
+        else if (e.altKey && (e.code === 'KeyP' || e.key === 'p' || e.key === 'P')) {
+            e.preventDefault();
+            if (running && !paused) {
+                log('[Shortcut Alt+P] Pause triggered', 'warn');
+                pauseProcessing();
+            }
+        }
+        // Alt + X -> Stop / Cancel Submit / Cancel View Countdown
+        else if (e.altKey && (e.code === 'KeyX' || e.key === 'x' || e.key === 'X')) {
+            e.preventDefault();
+            if (isSummaryPage() && submitCountdown) {
+                log('[Shortcut Alt+X] Cancel Submit triggered', 'warn');
+                cancelSubmitCountdown();
+                return;
+            }
+            if (viewCountdownTimer) {
+                log('[Shortcut Alt+X] Cancel View Countdown triggered', 'warn');
+                cancelViewCountdown();
+                return;
+            }
+            if (running || paused) {
+                log('[Shortcut Alt+X] Stop triggered', 'warn');
+                stopProcessing();
+            }
+        }
+        // Alt + H -> Toggle Panel Visibility
+        else if (e.altKey && (e.code === 'KeyH' || e.key === 'h' || e.key === 'H')) {
+            e.preventDefault();
+            togglePanelVisibility();
+        }
+    });
+
+    // ==================== AUTO START (OPTIONAL) ====================
+    function scheduleAutoStart() {
+        if (!cfg.autoStart && !cfg.autoQuiz) return;
+        if (document.querySelectorAll('.que').length === 0) return;
+        if (!PROVIDERS[cfg.provider].keyOptional && !cfg.apiKeys[cfg.provider]) return;
+        startProcessing();
+    }
+
+    // ==================== PAGE EVALUATOR ====================
+    function evaluateCurrentPage() {
+        if (isSummaryPage()) {
+            handleSummaryPage();
+        } else if (isQuizViewPage()) {
+            handleQuizViewPage();
+        } else if (isCourseViewPage()) {
+            handleCourseViewPage();
+        } else if (isMyCoursesPage()) {
+            handleMyCoursesPage();
+        } else {
+            var qCount = document.querySelectorAll('.que').length;
+            if (qCount > 0) {
+                log('Terdeteksi ' + qCount + ' soal di halaman ini.', 'info');
+                if (cfg.autoQuiz || cfg.autoStart) {
+                    scheduleAutoStart();
+                }
+            } else if (window.location.pathname.indexOf('/mod/quiz/attempt.php') !== -1) {
+                var attemptRetry = 0;
+                var pollQue = setInterval(function () {
+                    attemptRetry++;
+                    var count = document.querySelectorAll('.que').length;
+                    if (count > 0) {
+                        clearInterval(pollQue);
+                        log('Terdeteksi ' + count + ' soal di halaman ini.', 'info');
+                        if (cfg.autoQuiz || cfg.autoStart) {
+                            scheduleAutoStart();
+                        }
+                    } else if (attemptRetry >= 10) {
+                        clearInterval(pollQue);
+                    }
+                }, 500);
+            }
+        }
     }
 
     // ==================== INIT ====================
     loadConfigFromServer().then(function (loaded) {
         cfg = loaded;
         createPanel();
-        log('Panel siap. Config dimuat dari server.', 'info');
-        log('Mode: SEB Proxy v4.0', 'ok');
-
-        var provName = PROVIDERS[cfg.provider] ? PROVIDERS[cfg.provider].name : cfg.provider;
-        var hasKey = PROVIDERS[cfg.provider] && (PROVIDERS[cfg.provider].keyOptional || cfg.apiKeys[cfg.provider]);
-        log(provName + ' / ' + cfg.models[cfg.provider] + (hasKey ? ' (key OK)' : ' (key kosong!)'), hasKey ? 'ok' : 'warn');
-
-        var qCount = document.querySelectorAll('.que').length;
-        if (qCount > 0) {
-            log('Terdeteksi ' + qCount + ' soal di halaman ini.', 'info');
-        }
-
-        scheduleAutoStart();
+        console.log('[QBot Ready] SEB Proxy v4.1 Mode | Deteksi otomatis aktif');
+        evaluateCurrentPage();
     });
 })();

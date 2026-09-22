@@ -8,65 +8,155 @@
     * { box-sizing: border-box; }
     body {
         margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
-        background: #0b0f19; color: #d1d5db;
-        font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; padding: 24px;
+        background: radial-gradient(circle at top right, #1e1b4b 0%, #0b0f19 60%, #030712 100%);
+        color: #e2e8f0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+        font-size: 13.5px; padding: 24px;
+        -webkit-font-smoothing: antialiased;
     }
     .card {
-        width: 420px; background: #111827; border: 1px solid #1f2937; border-radius: 14px;
-        box-shadow: 0 20px 60px rgba(0,0,0,.5); overflow: hidden;
+        width: 440px;
+        background: rgba(15, 23, 42, 0.92);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 18px;
+        box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
+        overflow: hidden;
     }
-    .head { padding: 18px 22px; background: #1f2937; }
-    .head h1 { margin: 0; font-size: 17px; color: #60a5fa; font-weight: 600; }
-    .head p { margin: 4px 0 0; font-size: 12px; color: #9ca3af; }
-    .body { padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; }
-    .field { display: flex; flex-direction: column; gap: 6px; }
+    .head {
+        padding: 20px 24px;
+        background: linear-gradient(180deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.6) 100%);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex; align-items: center; gap: 12px;
+    }
+    .head-icon {
+        width: 36px; height: 36px; border-radius: 10px;
+        background: linear-gradient(135deg, #2563eb, #7c3aed);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 16px; color: #fff; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+        flex-shrink: 0;
+    }
+    .head-content h1 {
+        margin: 0; font-size: 16px; font-weight: 700; color: #f8fafc; letter-spacing: -0.2px;
+    }
+    .head-content p {
+        margin: 3px 0 0; font-size: 11.5px; color: #94a3b8;
+    }
+    .body { padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
     .field label {
-        font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: .5px;
-        font-weight: 600; display: flex; justify-content: space-between; align-items: center;
+        font-size: 10.5px; color: #94a3b8; text-transform: uppercase; letter-spacing: .6px;
+        font-weight: 700; display: flex; justify-content: space-between; align-items: center;
     }
-    .field label a { color: #60a5fa; text-transform: none; letter-spacing: 0; font-size: 11px; text-decoration: none; }
-    .field label a:hover { text-decoration: underline; }
+    .field label a {
+        color: #818cf8; text-transform: none; letter-spacing: 0; font-size: 11px;
+        font-weight: 500; text-decoration: none; transition: color .2s;
+    }
+    .field label a:hover { color: #a5b4fc; text-decoration: underline; }
     .field input, .field select {
-        background: #1f2937; border: 1px solid #374151; border-radius: 8px;
-        padding: 9px 12px; color: #e5e7eb; font-size: 14px; outline: none; width: 100%;
+        background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 9px; padding: 8px 12px; color: #f1f5f9; font-size: 13px;
+        outline: none; width: 100%; transition: all .2s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .field input:focus, .field select:focus { border-color: #60a5fa; }
+    .field select {
+        appearance: none; -webkit-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        padding-right: 34px;
+        cursor: pointer;
+    }
+    .field select option { background: #1e293b; color: #f1f5f9; }
+    .field input:focus, .field select:focus {
+        border-color: #6366f1; background: rgba(30, 41, 59, 0.9);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    }
     .key-wrap { position: relative; }
     .key-wrap input { padding-right: 40px; }
     .eye {
         position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-        background: none; border: none; color: #6b7280; cursor: pointer; font-size: 16px;
+        background: none; border: none; color: #64748b; cursor: pointer; font-size: 15px; padding: 3px;
+        display: flex; align-items: center; justify-content: center; transition: color .2s;
     }
-    .eye:hover { color: #d1d5db; }
+    .eye:hover { color: #cbd5e1; }
+
+    /* Auto Pilot Hero Card */
+    .card-autopilot {
+        background: linear-gradient(135deg, rgba(37, 99, 235, 0.16) 0%, rgba(99, 102, 241, 0.08) 100%);
+        border: 1px solid rgba(96, 165, 250, 0.28);
+        border-radius: 12px;
+        padding: 11px 14px;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.08);
+        display: flex; align-items: center; justify-content: space-between;
+        transition: all .25s ease;
+    }
+    .card-autopilot:hover {
+        border-color: rgba(96, 165, 250, 0.45);
+        box-shadow: 0 6px 18px rgba(37, 99, 235, 0.16);
+    }
+
+    /* Options Group Card */
+    .options-group {
+        background: rgba(30, 41, 59, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 10px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
     .row { display: flex; align-items: center; justify-content: space-between; }
-    .row span { font-size: 13px; color: #d1d5db; }
-    .toggle { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+    .row-label { font-size: 12.5px; font-weight: 500; color: #cbd5e1; }
+    .toggle { position: relative; width: 38px; height: 21px; flex-shrink: 0; }
     .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
-    .toggle .slider { position: absolute; inset: 0; background: #374151; border-radius: 11px; cursor: pointer; transition: .2s; }
-    .toggle .slider::before {
-        content: ''; position: absolute; width: 18px; height: 18px; left: 2px; bottom: 2px;
-        background: #9ca3af; border-radius: 50%; transition: .2s;
+    .toggle .slider {
+        position: absolute; inset: 0; background: rgba(71, 85, 105, 0.6);
+        border-radius: 20px; cursor: pointer;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
     }
-    .toggle input:checked + .slider { background: #2563eb; }
-    .toggle input:checked + .slider::before { transform: translateX(18px); background: #fff; }
+    .toggle .slider::before {
+        content: ''; position: absolute; width: 17px; height: 17px; left: 2px; bottom: 2px;
+        background: #e2e8f0; border-radius: 50%;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+    .toggle input:checked + .slider {
+        background: linear-gradient(135deg, #2563eb, #6366f1);
+        box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+    }
+    .toggle input:checked + .slider::before {
+        transform: translateX(17px); background: #ffffff;
+    }
+
     .saved {
-        font-size: 12px; color: #34d399; text-align: center; min-height: 18px;
-        opacity: 0; transition: opacity .2s;
+        font-size: 12px; font-weight: 600; color: #34d399; text-align: center; min-height: 20px;
+        opacity: 0; transition: opacity .25s ease;
+        display: flex; align-items: center; justify-content: center; gap: 5px;
     }
     .saved.show { opacity: 1; }
     .note {
-        background: #0b0f19; border: 1px solid #1f2937; border-radius: 8px; padding: 12px 14px;
-        font-size: 12px; color: #9ca3af; line-height: 1.7;
+        background: rgba(10, 15, 29, 0.9); border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 11px; padding: 12px 14px;
+        font-size: 11.5px; color: #94a3b8; line-height: 1.65;
     }
-    .note b { color: #d1d5db; }
-    .note code { color: #34d399; font-family: 'Cascadia Code', Consolas, monospace; font-size: 11px; }
+    .note b { color: #f1f5f9; }
+    .note code {
+        color: #6ee7b7; background: rgba(16, 185, 129, 0.12);
+        padding: 2px 5px; border-radius: 4px;
+        font-family: 'JetBrains Mono', Consolas, monospace; font-size: 11px;
+    }
 </style>
 </head>
 <body>
 <div class="card">
     <div class="head">
-        <h1>Quiz Assistant — Konfigurasi</h1>
-        <p>Atur di sini sebelum masuk SEB. Tersimpan di server (proxy).</p>
+        <div class="head-icon">✦</div>
+        <div class="head-content">
+            <h1>Quiz Assistant — Konfigurasi</h1>
+            <p>Atur di sini sebelum masuk SEB. Tersimpan otomatis di server proxy.</p>
+        </div>
     </div>
     <div class="body">
         <div class="field">
@@ -90,21 +180,58 @@
             <input type="text" id="model-text" list="model-list" style="display:none" placeholder="nama model lokal (mis. llama3.1)" />
             <datalist id="model-list"></datalist>
         </div>
-        <div class="row">
-            <span>Auto Next Page</span>
-            <label class="toggle"><input type="checkbox" id="autonext" /><span class="slider"></span></label>
+        <div class="card-autopilot">
+            <div>
+                <div style="font-size:13px;font-weight:700;color:#93c5fd;display:flex;align-items:center;gap:5px">
+                    <span>⚡</span> Auto Pilot Kuis (Alt+A)
+                </div>
+                <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">Deteksi & prioritaskan deadline otomatis</div>
+            </div>
+            <label class="toggle"><input type="checkbox" id="autoquiz" /><span class="slider"></span></label>
         </div>
-        <div class="row">
-            <span>Auto Start (saat quiz dibuka di SEB)</span>
-            <label class="toggle"><input type="checkbox" id="autostart" /><span class="slider"></span></label>
+        <div class="options-group">
+            <div class="row" id="urgent-row">
+                <div>
+                    <span class="row-label" style="display:block">Batas Jatuh Tempo Mendesak</span>
+                    <span style="font-size:10px;color:#94a3b8">Kuis di bawah batas ini langsung dikerjakan</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px">
+                    <input type="number" id="urgentthreshold" min="1" max="168" style="width:60px;padding:5px 8px;font-size:12.5px;text-align:center" />
+                    <span style="font-size:11.5px;color:#94a3b8">Jam</span>
+                </div>
+            </div>
+            <div class="row">
+                <span class="row-label">Auto Next Page</span>
+                <label class="toggle"><input type="checkbox" id="autonext" /><span class="slider"></span></label>
+            </div>
+            <div class="row">
+                <span class="row-label">Auto Start (saat load di SEB)</span>
+                <label class="toggle"><input type="checkbox" id="autostart" /><span class="slider"></span></label>
+            </div>
+            <div class="row">
+                <span class="row-label">Auto Submit (Kirim di Summary)</span>
+                <label class="toggle"><input type="checkbox" id="autosubmit" /><span class="slider"></span></label>
+            </div>
+            <div class="row">
+                <span class="row-label">Stealth Mode (Sembunyikan Panel di SEB)</span>
+                <label class="toggle"><input type="checkbox" id="stealthmode" /><span class="slider"></span></label>
+            </div>
         </div>
-        <div class="saved" id="saved">&#10003; Tersimpan</div>
+        <div class="saved" id="saved">✓ Konfigurasi Berhasil Disimpan</div>
         <div class="note">
-            <b>Cara pakai:</b> isi semua di atas &rarr; otomatis tersimpan ke server.
-            Lalu buka quiz di <b>SEB</b> &mdash; panel di dalam SEB sudah terisi otomatis,
-            tinggal klik <b>Start</b>. Kalau <b>Auto Start</b> aktif, langsung jalan sendiri.
-            <br><br>
-            Pastikan proxy aktif (<code>npm start</code>) &amp; proxy Windows menunjuk <code>127.0.0.1:8080</code>.
+            <b>Cara pakai (Mode Shortcut di SEB):</b>
+            <ol style="margin:6px 0;padding-left:18px">
+                <li>Atur Provider, API Key, dan Model di dashboard ini.</li>
+                <li>Aktifkan <b>Auto Pilot Kuis</b> bila ingin otomatis mendeteksi kuis &amp; mengutamakan deadline.</li>
+                <li>Gunakan shortcut keyboard di dalam SEB:
+                    <ul style="margin:4px 0;padding-left:16px">
+                        <li><code>Alt + A</code> : <b>Toggle Auto Pilot</b></li>
+                        <li><code>Alt + S</code> : <b>Start / Resume / Submit</b></li>
+                        <li><code>Alt + P</code> : <b>Pause</b> | <code>Alt + X</code> : <b>Stop / Cancel</b></li>
+                        <li><code>Alt + H</code> : <b>Toggle UI Panel</b> (Unhide / Hide)</li>
+                    </ul>
+                </li>
+            </ol>
         </div>
     </div>
 </div>
@@ -116,10 +243,13 @@ var PROVIDERS = {
         name: 'Groq', keyHint: 'gsk_...', keyUrl: 'https://console.groq.com/keys',
         models: [
             { id: 'llama-3.3-70b-versatile', name: 'LLaMA 3.3 70B' },
+            { id: 'deepseek-r1-distill-llama-70b', name: 'DeepSeek R1 70B' },
             { id: 'llama-3.1-8b-instant', name: 'LLaMA 3.1 8B Instant' },
             { id: 'llama3-70b-8192', name: 'LLaMA 3 70B' },
             { id: 'llama3-8b-8192', name: 'LLaMA 3 8B' },
             { id: 'gemma2-9b-it', name: 'Gemma 2 9B' },
+            { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B' },
+            { id: 'qwen-qwq-32b', name: 'Qwen QwQ 32B' },
         ],
     },
     gemini: {
@@ -130,6 +260,10 @@ var PROVIDERS = {
             { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
             { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash-Lite' },
             { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+            { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
+            { id: 'gemini-2.0-flash-lite', name: 'Gemini 2.0 Flash-Lite' },
+            { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
+            { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
             { id: 'gemma-4-31b-it', name: 'Gemma 4 31B' },
             { id: 'gemma-4-26b-a4b-it', name: 'Gemma 4 26B A4B' },
             { id: 'gemma-3-27b-it', name: 'Gemma 3 27B' },
@@ -143,13 +277,19 @@ var PROVIDERS = {
             { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6' },
             { id: 'claude-opus-4-8', name: 'Claude Opus 4.8' },
             { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5' },
+            { id: 'claude-3-7-sonnet-latest', name: 'Claude 3.7 Sonnet' },
+            { id: 'claude-3-5-sonnet-latest', name: 'Claude 3.5 Sonnet' },
+            { id: 'claude-3-5-haiku-latest', name: 'Claude 3.5 Haiku' },
         ],
     },
     deepseek: {
         name: 'DeepSeek', keyHint: 'sk-...', keyUrl: 'https://platform.deepseek.com/api_keys',
         models: [
+            { id: 'deepseek-chat', name: 'DeepSeek Chat (V3)' },
+            { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner (R1)' },
             { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash' },
             { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro' },
+            { id: 'deepseek-coder', name: 'DeepSeek Coder' },
         ],
     },
     local: {
@@ -161,6 +301,7 @@ var PROVIDERS = {
             { id: 'gemma2', name: 'gemma2' },
             { id: 'mistral', name: 'mistral' },
             { id: 'phi4', name: 'phi4' },
+            { id: 'deepseek-r1', name: 'deepseek-r1' },
         ],
     },
 };
@@ -168,7 +309,7 @@ var PROVIDER_KEYS = Object.keys(PROVIDERS);
 
 var cfg = null;
 var el = {};
-['provider', 'baseurl-field', 'baseurl', 'keylink', 'key', 'eye', 'model', 'model-text', 'model-list', 'autonext', 'autostart', 'saved']
+['provider', 'baseurl-field', 'baseurl', 'keylink', 'key', 'eye', 'model', 'model-text', 'model-list', 'autoquiz', 'urgentthreshold', 'autonext', 'autostart', 'autosubmit', 'stealthmode', 'saved']
     .forEach(function (id) { el[id] = document.getElementById(id); });
 
 // Populate provider dropdown
@@ -203,7 +344,9 @@ function syncUI() {
     } else {
         el['model-text'].style.display = 'none';
         el.model.style.display = 'block';
-        if (!p.models.some(function (m) { return m.id === cfg.models[cfg.provider]; })) {
+        if (cfg.models[cfg.provider] && !p.models.some(function (m) { return m.id === cfg.models[cfg.provider]; })) {
+            p.models.unshift({ id: cfg.models[cfg.provider], name: cfg.models[cfg.provider] + ' (Custom/Tersimpan)' });
+        } else if (!cfg.models[cfg.provider] && p.models.length > 0) {
             cfg.models[cfg.provider] = p.models[0].id;
         }
         el.model.innerHTML = p.models.map(function (m) {
@@ -211,8 +354,12 @@ function syncUI() {
         }).join('');
     }
 
+    el.autoquiz.checked = !!cfg.autoQuiz;
+    el.urgentthreshold.value = typeof cfg.urgentThresholdHours === 'number' ? cfg.urgentThresholdHours : 24;
     el.autonext.checked = !!cfg.autoNext;
     el.autostart.checked = !!cfg.autoStart;
+    el.autosubmit.checked = !!cfg.autoSubmit;
+    el.stealthmode.checked = cfg.stealthMode !== undefined ? !!cfg.stealthMode : true;
 }
 
 function persist() {
@@ -229,8 +376,17 @@ el.key.addEventListener('input', function (e) { cfg.apiKeys[cfg.provider] = e.ta
 el.model.addEventListener('change', function (e) { cfg.models[cfg.provider] = e.target.value; persist(); });
 el['model-text'].addEventListener('input', function (e) { cfg.models[cfg.provider] = e.target.value.trim(); persist(); });
 el.baseurl.addEventListener('input', function (e) { cfg.localBaseUrl = e.target.value.trim() || 'http://localhost:11434/v1'; persist(); });
+el.autoquiz.addEventListener('change', function (e) { cfg.autoQuiz = e.target.checked; persist(); });
+el.urgentthreshold.addEventListener('change', function (e) {
+    var val = parseInt(e.target.value, 10);
+    cfg.urgentThresholdHours = isNaN(val) || val < 1 ? 24 : val;
+    el.urgentthreshold.value = cfg.urgentThresholdHours;
+    persist();
+});
 el.autonext.addEventListener('change', function (e) { cfg.autoNext = e.target.checked; persist(); });
 el.autostart.addEventListener('change', function (e) { cfg.autoStart = e.target.checked; persist(); });
+el.autosubmit.addEventListener('change', function (e) { cfg.autoSubmit = e.target.checked; persist(); });
+el.stealthmode.addEventListener('change', function (e) { cfg.stealthMode = e.target.checked; persist(); });
 el.eye.addEventListener('click', function () { el.key.type = el.key.type === 'password' ? 'text' : 'password'; });
 
 // Load config from server
@@ -241,8 +397,8 @@ fetch('/__qbot__/config')
         cfg = {
             provider: 'groq',
             apiKeys: { groq: '', gemini: '', claude: '', deepseek: '', local: '' },
-            models: { groq: 'llama-3.3-70b-versatile', gemini: 'gemini-3.5-flash', claude: 'claude-sonnet-4-6', deepseek: 'deepseek-v4-flash', local: 'llama3.1' },
-            localBaseUrl: 'http://localhost:11434/v1', autoNext: true, autoStart: false,
+            models: { groq: 'llama-3.3-70b-versatile', gemini: 'gemini-2.0-flash', claude: 'claude-3-7-sonnet-latest', deepseek: 'deepseek-chat', local: 'llama3.1' },
+            localBaseUrl: 'http://localhost:11434/v1', autoQuiz: false, urgentThresholdHours: 24, autoNext: true, autoStart: false, autoSubmit: false, stealthMode: true,
         };
         syncUI();
     });

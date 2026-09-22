@@ -1,83 +1,309 @@
 #qbot-panel {
-    position: fixed; top: 16px; right: 16px; width: 320px;
-    background: #111827; border: 1px solid #1f2937; border-radius: 12px;
-    color: #d1d5db; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px;
-    z-index: 999999; box-shadow: 0 20px 60px rgba(0,0,0,.5); transition: all .3s ease;
+    position: fixed; top: 18px; right: 18px; width: 330px;
+    background: rgba(15, 23, 42, 0.94);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+    font-size: 13px;
+    z-index: 999999;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    transition: box-shadow .3s ease, transform .2s ease;
+    overflow: hidden;
 }
+#qbot-panel.minimized { width: auto; border-radius: 12px; }
 #qbot-panel.minimized .qbot-body { display: none; }
-#qbot-panel.minimized { width: auto; }
 .qbot-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 14px; background: #1f2937; border-radius: 11px 11px 0 0;
+    padding: 12px 14px;
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.6) 100%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
     cursor: move; user-select: none;
 }
-#qbot-panel.minimized .qbot-header { border-radius: 11px; }
-.qbot-header h3 { margin: 0; font-size: 13px; font-weight: 600; color: #60a5fa; }
-.qbot-hbtn {
-    background: none; border: none; color: #9ca3af; cursor: pointer;
-    font-size: 16px; padding: 2px 6px; border-radius: 4px; line-height: 1;
+#qbot-panel.minimized .qbot-header { border-bottom: none; }
+.qbot-header-left {
+    display: flex; align-items: center; gap: 8px;
 }
-.qbot-hbtn:hover { color: #fff; background: #374151; }
-.qbot-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.qbot-header-badge {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; color: #fff; box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+}
+.qbot-header h3 {
+    margin: 0; font-size: 13.5px; font-weight: 700;
+    letter-spacing: -0.2px; color: #f8fafc;
+}
+.qbot-hbtn {
+    background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.06);
+    color: #94a3b8; cursor: pointer;
+    width: 24px; height: 24px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; line-height: 1; transition: all .2s;
+}
+.qbot-hbtn:hover { color: #f8fafc; background: rgba(255, 255, 255, 0.15); }
+.qbot-body { padding: 13px 14px; display: flex; flex-direction: column; gap: 9px; }
 .qbot-field { display: flex; flex-direction: column; gap: 4px; }
 .qbot-field label {
-    font-size: 11px; color: #9ca3af; text-transform: uppercase;
-    letter-spacing: .5px; font-weight: 600; display: flex; justify-content: space-between; align-items: center;
+    font-size: 10.5px; color: #94a3b8; text-transform: uppercase;
+    letter-spacing: .6px; font-weight: 700; display: flex; justify-content: space-between; align-items: center;
 }
-.qbot-field label a { color: #60a5fa; text-transform: none; letter-spacing: 0; font-size: 10px; text-decoration: none; }
-.qbot-field label a:hover { text-decoration: underline; }
+.qbot-field label a {
+    color: #818cf8; text-transform: none; letter-spacing: 0; font-size: 11px;
+    font-weight: 500; text-decoration: none; transition: color .2s;
+}
+.qbot-field label a:hover { color: #a5b4fc; text-decoration: underline; }
 .qbot-field input, .qbot-field select {
-    background: #1f2937; border: 1px solid #374151; border-radius: 6px;
-    padding: 7px 10px; color: #e5e7eb; font-size: 13px; outline: none; width: 100%; box-sizing: border-box;
+    background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px; padding: 7px 11px; color: #f1f5f9; font-size: 12.5px;
+    outline: none; width: 100%; box-sizing: border-box;
+    transition: all .2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.qbot-field input:focus, .qbot-field select:focus { border-color: #60a5fa; }
-.qbot-row { display: flex; align-items: center; justify-content: space-between; }
-.qbot-toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
-.qbot-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
-.qbot-toggle .slider {
-    position: absolute; inset: 0; background: #374151; border-radius: 10px;
-    cursor: pointer; transition: .2s;
+.qbot-field select {
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 32px;
+    cursor: pointer;
 }
-.qbot-toggle .slider::before {
-    content: ''; position: absolute; width: 16px; height: 16px;
-    left: 2px; bottom: 2px; background: #9ca3af; border-radius: 50%; transition: .2s;
+.qbot-field select option { background: #1e293b; color: #f1f5f9; }
+.qbot-field input:focus, .qbot-field select:focus {
+    border-color: #6366f1; background: rgba(30, 41, 59, 0.9);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
 }
-.qbot-toggle input:checked + .slider { background: #2563eb; }
-.qbot-toggle input:checked + .slider::before { transform: translateX(16px); background: #fff; }
-#qbot-start {
-    width: 100%; padding: 9px; border: none; border-radius: 8px;
-    font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s;
-}
-#qbot-start.idle { background: #2563eb; color: #fff; }
-#qbot-start.idle:hover { background: #3b82f6; }
-#qbot-start.running { background: #dc2626; color: #fff; }
-#qbot-start.running:hover { background: #ef4444; }
-#qbot-start:disabled { opacity: .5; cursor: not-allowed; }
-#qbot-log {
-    max-height: 200px; overflow-y: auto; background: #0b0f19; border-radius: 8px;
-    padding: 8px 10px; font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
-    font-size: 11px; line-height: 1.7;
-}
-#qbot-log::-webkit-scrollbar { width: 4px; }
-#qbot-log::-webkit-scrollbar-thumb { background: #374151; border-radius: 2px; }
-.log-info { color: #9ca3af; }
-.log-ok { color: #34d399; }
-.log-warn { color: #fbbf24; }
-.log-err { color: #f87171; }
-.log-ai { color: #a78bfa; }
-.qbot-status { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #6b7280; }
-.qbot-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.qbot-dot.idle { background: #6b7280; }
-.qbot-dot.run { background: #34d399; animation: qpulse 1.5s infinite; }
-.qbot-dot.err { background: #f87171; }
-@keyframes qpulse { 0%,100%{opacity:1} 50%{opacity:.3} }
-.que.qbot-active { outline: 2px solid #fbbf24 !important; outline-offset: 3px; }
-.que.qbot-done { outline: 2px solid #34d399 !important; outline-offset: 3px; }
-.que.qbot-fail { outline: 2px solid #f87171 !important; outline-offset: 3px; }
 .qbot-key-wrap { position: relative; }
 .qbot-key-wrap input { padding-right: 36px; }
 .qbot-eye {
     position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-    background: none; border: none; color: #6b7280; cursor: pointer; font-size: 14px; padding: 2px;
+    background: none; border: none; color: #64748b; cursor: pointer; font-size: 14px; padding: 3px;
+    display: flex; align-items: center; justify-content: center; transition: color .2s;
 }
-.qbot-eye:hover { color: #d1d5db; }
+.qbot-eye:hover { color: #cbd5e1; }
+
+/* Auto Pilot Hero Card */
+.qbot-card-autopilot {
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.16) 0%, rgba(99, 102, 241, 0.08) 100%);
+    border: 1px solid rgba(96, 165, 250, 0.28);
+    border-radius: 11px;
+    padding: 9px 11px;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.08);
+    transition: all .25s ease;
+}
+.qbot-card-autopilot:hover {
+    border-color: rgba(96, 165, 250, 0.45);
+    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.16);
+}
+
+/* Grouped Options */
+.qbot-options-group {
+    background: rgba(30, 41, 59, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 11px;
+    padding: 8px 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+.qbot-opt-row {
+    display: flex; align-items: center; justify-content: space-between;
+}
+.qbot-opt-label {
+    font-size: 12px; font-weight: 500; color: #cbd5e1;
+}
+
+/* Modern Toggle */
+.qbot-row { display: flex; align-items: center; justify-content: space-between; }
+.qbot-toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+.qbot-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+.qbot-toggle .slider {
+    position: absolute; inset: 0; background: rgba(71, 85, 105, 0.6);
+    border-radius: 20px; cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.qbot-toggle .slider::before {
+    content: ''; position: absolute; width: 16px; height: 16px;
+    left: 2px; bottom: 2px; background: #e2e8f0; border-radius: 50%;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+.qbot-toggle input:checked + .slider {
+    background: linear-gradient(135deg, #2563eb, #6366f1);
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+}
+.qbot-toggle input:checked + .slider::before {
+    transform: translateX(16px); background: #ffffff;
+}
+
+/* Main Action Button */
+#qbot-start {
+    width: 100%; padding: 10px; border: none; border-radius: 10px;
+    font-size: 13px; font-weight: 700; letter-spacing: 0.3px; cursor: pointer;
+    transition: all .2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+#qbot-start.idle {
+    background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+    color: #ffffff;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+}
+#qbot-start.idle:hover {
+    background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.55);
+    transform: translateY(-1px);
+}
+#qbot-start.running {
+    background: linear-gradient(135deg, #dc2626 0%, #e11d48 100%);
+    color: #ffffff;
+    box-shadow: 0 4px 14px rgba(220, 38, 38, 0.4);
+}
+#qbot-start.running:hover {
+    background: linear-gradient(135deg, #ef4444 0%, #f43f5e 100%);
+    box-shadow: 0 6px 20px rgba(220, 38, 38, 0.55);
+    transform: translateY(-1px);
+}
+#qbot-start:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* Status Bar */
+.qbot-status {
+    display: flex; align-items: center; gap: 7px; font-size: 11px;
+    font-weight: 500; color: #94a3b8; padding: 1px 2px;
+}
+.qbot-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    transition: all .3s ease;
+}
+.qbot-dot.idle {
+    background: #64748b;
+    box-shadow: 0 0 0 2px rgba(100, 116, 139, 0.2);
+}
+.qbot-dot.run {
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981, 0 0 0 3px rgba(16, 185, 129, 0.25);
+    animation: qpulse 1.6s infinite;
+}
+.qbot-dot.err {
+    background: #f43f5e;
+    box-shadow: 0 0 8px #f43f5e, 0 0 0 3px rgba(244, 63, 94, 0.25);
+}
+@keyframes qpulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* Log Terminal */
+#qbot-log {
+    max-height: 180px; overflow-y: auto;
+    background: rgba(10, 15, 29, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    padding: 9px 11px;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    font-size: 10.5px; line-height: 1.65;
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+#qbot-log::-webkit-scrollbar { width: 5px; }
+#qbot-log::-webkit-scrollbar-track { background: transparent; }
+#qbot-log::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
+#qbot-log::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
+.log-info { color: #94a3b8; }
+.log-ok { color: #34d399; }
+.log-warn { color: #fbbf24; }
+.log-err { color: #f87171; }
+.log-ai { color: #a78bfa; }
+
+/* Questions Outline */
+.que.qbot-active { outline: 2px solid #fbbf24 !important; outline-offset: 3px; }
+.que.qbot-done { outline: 2px solid #34d399 !important; outline-offset: 3px; }
+.que.qbot-fail { outline: 2px solid #f87171 !important; outline-offset: 3px; }
+
+/* Prompt Dialog & Due Date Styles */
+.qbot-prompt-box {
+    background: linear-gradient(145deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    border-left: 4px solid #f59e0b;
+    border-radius: 12px;
+    padding: 12px 13px;
+    margin: 4px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(245, 158, 11, 0.1);
+    animation: qfadein .25s ease-out;
+}
+.qbot-prompt-title {
+    font-size: 12px; font-weight: 700; color: #fbbf24;
+    display: flex; align-items: center; gap: 6px;
+}
+.qbot-prompt-msg {
+    font-size: 11.5px; color: #e2e8f0; line-height: 1.55;
+}
+.qbot-prompt-btns { display: flex; gap: 8px; margin-top: 3px; }
+.qbot-btn-yes {
+    flex: 1.2; padding: 7px 12px;
+    background: linear-gradient(135deg, #2563eb, #4f46e5);
+    color: #ffffff; border: none; border-radius: 8px;
+    font-size: 11.5px; font-weight: 600; cursor: pointer;
+    transition: all .2s ease;
+    box-shadow: 0 3px 10px rgba(37, 99, 235, 0.35);
+}
+.qbot-btn-yes:hover {
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    box-shadow: 0 5px 15px rgba(37, 99, 235, 0.5);
+    transform: translateY(-1px);
+}
+.qbot-btn-no {
+    flex: 1; padding: 7px 12px;
+    background: rgba(51, 65, 85, 0.6); color: #cbd5e1;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px; font-size: 11.5px; font-weight: 600;
+    cursor: pointer; transition: all .2s ease;
+}
+.qbot-btn-no:hover {
+    background: rgba(71, 85, 105, 0.85); color: #ffffff;
+}
+
+/* Dashboard & Timeline Items */
+.qbot-dashboard-box {
+    background: linear-gradient(145deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.8));
+    border: 1px solid rgba(96, 165, 250, 0.25);
+    border-radius: 12px; padding: 10px 12px; margin: 4px 0;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+.qbot-quiz-item {
+    background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column;
+    gap: 5px; font-size: 11px; transition: all .2s ease;
+}
+.qbot-quiz-item:hover {
+    background: rgba(30, 41, 59, 0.9); border-color: rgba(96, 165, 250, 0.3);
+    transform: translateY(-1px);
+}
+.qbot-quiz-item-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.qbot-quiz-item-title { font-weight: 600; color: #f1f5f9; word-break: break-word; }
+.qbot-quiz-item-due { color: #94a3b8; font-size: 10px; }
+.qbot-quiz-item-btn {
+    align-self: flex-start; margin-top: 3px; padding: 4px 9px;
+    background: linear-gradient(135deg, #2563eb, #4f46e5); color: #ffffff;
+    border-radius: 6px; text-decoration: none; font-size: 10.5px; font-weight: 600;
+    transition: all .2s; box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+}
+.qbot-quiz-item-btn:hover {
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.5);
+}
+
+.qbot-badge {
+    display: inline-flex; align-items: center; padding: 2px 7px;
+    border-radius: 6px; font-size: 10px; font-weight: 600; letter-spacing: 0.2px;
+}
+.qbot-badge-urgent {
+    background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.35);
+}
+.qbot-badge-normal {
+    background: rgba(245, 158, 11, 0.15); color: #fde68a; border: 1px solid rgba(245, 158, 11, 0.35);
+}
+.qbot-badge-done {
+    background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.35);
+}
+@keyframes qfadein { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }

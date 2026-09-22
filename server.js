@@ -77,14 +77,18 @@ function handleApiRelay(req, res) {
             var chunks = [];
             apiRes.on('data', function (chunk) { chunks.push(chunk); });
             apiRes.on('end', function () {
-                var raw = Buffer.concat(chunks).toString('utf8');
-                var responseBody;
-                try {
-                    responseBody = JSON.parse(raw);
-                } catch (e) {
-                    responseBody = { raw: raw };
-                }
-                sendJson(res, 200, { status: apiRes.statusCode, body: responseBody });
+                var rawBuf = Buffer.concat(chunks);
+                var encoding = (apiRes.headers['content-encoding'] || '').toLowerCase();
+                decompressBuffer(rawBuf, encoding, function (err, decompressed) {
+                    var raw = decompressed.toString('utf8');
+                    var responseBody;
+                    try {
+                        responseBody = JSON.parse(raw);
+                    } catch (e) {
+                        responseBody = { raw: raw };
+                    }
+                    sendJson(res, 200, { status: apiRes.statusCode, body: responseBody });
+                });
             });
         });
 
@@ -148,7 +152,13 @@ function serveDashboard(res) {
 // Shared router for /__qbot__/* endpoints (dipakai MITM handler & main proxy handler).
 // Return true bila request sudah ditangani.
 function handleQbotRoute(req, res) {
-    var urlPath = req.url || '';
+    var rawUrl = req.url || '';
+    var urlPath = '';
+    try {
+        urlPath = new URL(rawUrl, 'http://127.0.0.1:8080').pathname;
+    } catch (e) {
+        urlPath = rawUrl;
+    }
 
     if (urlPath.startsWith('/__qbot__/')) {
         if (req.method === 'OPTIONS') {
@@ -209,8 +219,10 @@ function handleMitmRequest(req, res) {
     // QBot endpoints (inference / config / preflight)
     if (handleQbotRoute(req, res)) return;
 
-    // Forward to real LMS server
-    var shouldInject = urlPath.indexOf('/mod/quiz/attempt.php') !== -1;
+    // Forward to real LMS server (injeksi ke halaman kuis, matakuliah, dan my courses)
+    var shouldInject = urlPath.indexOf('/mod/quiz/') !== -1 ||
+                       urlPath.indexOf('/course/view.php') !== -1 ||
+                       urlPath.indexOf('/my/') !== -1;
 
     var fwdHeaders = Object.assign({}, req.headers);
     fwdHeaders.host = TARGET_HOST;
